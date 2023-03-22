@@ -4,7 +4,6 @@ math.random(); math.random(); math.random()
 
 local url = "http://localhost:5000"
 
-
 local function search_hotel() 
   local in_date = math.random(9, 23)
   local out_date = math.random(in_date + 1, 24)
@@ -34,6 +33,7 @@ local function search_hotel()
   -- headers["Content-Type"] = "application/x-www-form-urlencoded"
   return wrk.format(method, path, headers, nil)
 end
+
 
 request = function()
   cur_time = math.floor(socket.gettime())

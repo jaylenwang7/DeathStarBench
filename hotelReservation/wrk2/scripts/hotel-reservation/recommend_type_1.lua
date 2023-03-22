@@ -4,7 +4,6 @@ math.random(); math.random(); math.random()
 
 local url = "http://localhost:5000"
 
-
 local function recommend()
   local coin = math.random()
   local req_param = ""

@@ -4,6 +4,18 @@ math.random(); math.random(); math.random()
 
 local url = "http://localhost:5000"
 
+local function get_user()
+  local id = math.random(0, 500)
+  local user_name = "Cornell_" .. tostring(id)
+  local pass_word = ""
+  for i = 0, 9, 1 do 
+    pass_word = pass_word .. tostring(id)
+  end
+  return user_name, pass_word
+end
+
+
+
 local function reserve()
   local in_date = math.random(9, 23)
   local out_date = in_date + math.random(1, 5)
@@ -27,6 +39,9 @@ local function reserve()
   local cust_name = user_id
 
   local num_room = "1"
+
+  local lat = 38.0235 + (math.random(0, 481) - 240.5)/1000.0
+  local lon = -122.095 + (math.random(0, 325) - 157.0)/1000.0
 
   local method = "POST"
   local path = url .. "/reservation?inDate=" .. in_date_str .. 
