@@ -23,5 +23,3 @@ sudo apt-get install likwid -y
 sudo luarocks install luasocket
 sudo apt install linux-tools-`uname -r` linux-tools-generic htop -y
 sudo apt install libelf-dev libdw-dev systemtap-sdt-dev libunwind-dev libslang2-dev libnuma-dev libiberty-dev -y
-
-cd ~ && git clone https://github.com/jaylenwang7/DeathStarBench.git && cd ~/DeathStarBench/$1/
