@@ -13,6 +13,7 @@
 #include "../ThriftClient.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 
 namespace social_network {
 
@@ -49,6 +50,9 @@ void TextHandler::ComposeText(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
+
+  // get current time
+  auto start = std::chrono::high_resolution_clock::now();
 
   std::vector<std::string> mention_usernames;
   std::smatch m;
@@ -165,6 +169,12 @@ void TextHandler::ComposeText(
   _return.user_mentions = user_mentions;
   _return.text = updated_text;
   _return.urls = target_urls;
+  // get elapsed time in microseconds
+  auto finish = std::chrono::high_resolution_clock::now();
+  auto us = std::chrono::duration_cast<std::chrono::microseconds>(finish - start)
+                .count();
+  // log the time
+  LOG(info) << us << "us";
   span->Finish();
 }
 
