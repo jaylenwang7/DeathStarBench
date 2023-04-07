@@ -3,6 +3,8 @@
 #include <thrift/server/TThreadedServer.h>
 #include <thrift/transport/TBufferTransports.h>
 #include <thrift/transport/TServerSocket.h>
+#include <iostream>
+#include <fstream>
 
 #include "../utils.h"
 #include "../utils_thrift.h"
@@ -17,8 +19,24 @@ using namespace social_network;
 void sigintHandler(int sig) { exit(EXIT_SUCCESS); }
 
 int main(int argc, char *argv[]) {
+  // Open the file for writing
+  std::ofstream file("output.txt");
+
+  // Check if the file is open
+  if (!file.is_open()) {
+      std::cerr << "Error: could not open file" << std::endl;
+      return 1;
+  }
+
+  // Write "hello world" to the file
+  file << "hello world" << std::endl;
+
+  // Close the file
+  file.close();
+
   signal(SIGINT, sigintHandler);
-  init_logger("logs/compose-post-service.log");
+  // set logger with priority level "trace"
+  init_logger("logs/compose-post-service.log", boost::log::trivial::trace);
   LOG(info) << "Starting compose-post-service";
   SetUpTracer("config/jaeger-config.yml", "compose-post-service");
 
