@@ -31,6 +31,7 @@ void init_logger(const char* filename = nullptr,
             boost::log::keywords::format =
                 "[%TimeStamp%] <%Severity%>: %Message%"
         );
+        boost::log::keywords::auto_flush = true // Set auto_flush to true
     } else {
         boost::log::add_console_log(
             std::cerr, boost::log::keywords::format =
