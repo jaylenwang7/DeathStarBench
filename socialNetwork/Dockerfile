@@ -2,6 +2,10 @@ FROM yg397/thrift-microservice-deps:xenial AS builder
 
 ARG LIB_REDIS_PLUS_PLUS_VERSION=1.2.3
 
+# Install HDR Histogram C library
+RUN apt-get update && apt-get install -y git build-essential
+RUN git clone https://github.com/HdrHistogram/HdrHistogram_c.git && cd HdrHistogram_c && make && make install
+
 # Apply patch and re-install Redis plus plus
 RUN cd /tmp/redis-plus-plus\
 && sed -i '/Transaction transaction/i\\    ShardsPool* get_shards_pool(){\n        return &_pool;\n    }\n' \

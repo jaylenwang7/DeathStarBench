@@ -18,7 +18,7 @@ void sigintHandler(int sig) { exit(EXIT_SUCCESS); }
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, sigintHandler);
-  init_logger("logs/text-service.log", boost::log::trivial::trace);
+  init_logger();
   LOG(info) << "Starting text-service";
   SetUpTracer("config/jaeger-config.yml", "text-service");
 

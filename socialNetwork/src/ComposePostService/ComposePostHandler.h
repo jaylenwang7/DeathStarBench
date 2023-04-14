@@ -365,6 +365,7 @@ void ComposePostHandler::ComposePost(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
+  // JAEGER-HERE: compose_post_server
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_post_server", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;

@@ -21,6 +21,7 @@ function _M.ComposePost()
 
   local req_id = tonumber(string.sub(ngx.var.request_id, 0, 15), 16)
   local tracer = bridge_tracer.new_from_global()
+  -- JAEGER-HERE: wrk2-api/post/compose.lua
   local parent_span_context = tracer:binary_extract(ngx.var.opentracing_binary_context)
 
 
@@ -40,6 +41,7 @@ function _M.ComposePost()
   local client = GenericObjectPool:connection(
       ComposePostServiceClient, "compose-post-service" .. k8s_suffix, 9090)
 
+  -- JAEGER-HERE: compose_post_client
   local span = tracer:start_span("compose_post_client",
       { ["references"] = { { "child_of", parent_span_context } } })
   local carrier = {}

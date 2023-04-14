@@ -15,6 +15,10 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
+# find_package(HdrHistogram REQUIRED)
+# include_directories(${HDRHISTOGRAM_INCLUDE_DIR})
+# link_libraries(${HDRHISTOGRAM_LIBRARIES})
+
 #set(POCO_PREFIX      "/usr/local")
 #set(POCO_INCLUDE_DIR "${POCO_PREFIX}/include")
 #set(POCO_LIB_DIR     "${POCO_PREFIX}/lib")

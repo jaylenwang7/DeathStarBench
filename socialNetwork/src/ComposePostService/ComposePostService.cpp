@@ -35,8 +35,7 @@ int main(int argc, char *argv[]) {
   file.close();
 
   signal(SIGINT, sigintHandler);
-  // set logger with priority level "trace"
-  init_logger("logs/compose-post-service.log", boost::log::trivial::trace);
+  init_logger();
   LOG(fatal) << "Starting compose-post-service";
   SetUpTracer("config/jaeger-config.yml", "compose-post-service");
 
