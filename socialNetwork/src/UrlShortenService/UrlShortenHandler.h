@@ -78,7 +78,7 @@ void UrlShortenHandler::ComposeUrls(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_urls_server",
       { opentracing::ChildOf(parent_span->get()) });

@@ -40,7 +40,7 @@ void OnReceivedWorker(const AMQP::Message &msg) {
     TextMapReader span_reader(carrier);
     auto parent_span = opentracing::Tracer::Global()->Extract(span_reader);
     // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
         "write_home_timeline_server",
         {opentracing::ChildOf(parent_span->get())});

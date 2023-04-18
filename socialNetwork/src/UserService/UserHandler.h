@@ -126,7 +126,7 @@ void UserHandler::RegisterUserWithId(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "register_user_withid_server",
       {opentracing::ChildOf(parent_span->get())});
@@ -243,7 +243,7 @@ void UserHandler::RegisterUser(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "register_user_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -390,7 +390,7 @@ void UserHandler::ComposeCreatorWithUsername(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -551,7 +551,7 @@ void UserHandler::ComposeCreatorWithUserId(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -574,7 +574,7 @@ void UserHandler::Login(std::string &_return, int64_t req_id,
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "login_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -765,7 +765,7 @@ int64_t UserHandler::GetUserId(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "get_user_id_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);

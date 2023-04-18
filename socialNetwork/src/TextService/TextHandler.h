@@ -48,13 +48,10 @@ void TextHandler::ComposeText(
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // get current time
-auto start = std::chrono::high_resolution_clock::now();
+auto chrono_start = std::chrono::high_resolution_clock::now();
 auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
-
-  // get current time
-  auto start = std::chrono::high_resolution_clock::now();
 
   std::vector<std::string> mention_usernames;
   std::smatch m;
