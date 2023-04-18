@@ -184,6 +184,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
   redis_span->Finish();
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void UserTimelineHandler::ReadUserTimeline(
@@ -361,6 +366,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw;
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 }  // namespace social_network

@@ -301,6 +301,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::Unfollow(
@@ -485,6 +490,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::GetFollowers(
@@ -625,6 +635,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::GetFollowees(
@@ -772,6 +787,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::InsertUser(
@@ -830,6 +850,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   mongoc_collection_destroy(collection);
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::FollowWithUsername(
@@ -906,6 +931,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     Follow(req_id, user_id, followee_id, writer_text_map);
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void SocialGraphHandler::UnfollowWithUsername(
@@ -985,6 +1015,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 }  // namespace social_network

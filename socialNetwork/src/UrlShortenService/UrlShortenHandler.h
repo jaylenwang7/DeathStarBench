@@ -166,6 +166,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
   _return = target_urls;
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 
 }
 

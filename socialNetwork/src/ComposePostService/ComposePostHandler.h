@@ -128,6 +128,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     se.message = "Failed to connect to user-service";
     LOG(error) << se.message;
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw se;
   }
 
@@ -140,10 +145,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << "Failed to send compose-creator to user-service";
     _user_service_client_pool->Remove(user_client_wrapper);
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw;
   }
   _user_service_client_pool->Keepalive(user_client_wrapper);
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
   return _return_creator;
 }
 
@@ -168,6 +183,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << se.message;
     ;
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw se;
   }
 
@@ -179,10 +199,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << "Failed to send compose-text to text-service";
     _text_service_client_pool->Remove(text_client_wrapper);
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw;
   }
   _text_service_client_pool->Keepalive(text_client_wrapper);
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
   return _return_text;
 }
 
@@ -208,6 +238,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << se.message;
     ;
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw se;
   }
 
@@ -220,10 +255,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << "Failed to send compose-media to media-service";
     _media_service_client_pool->Remove(media_client_wrapper);
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw;
   }
   _media_service_client_pool->Keepalive(media_client_wrapper);
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
   return _return_media;
 }
 
@@ -247,6 +292,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     se.message = "Failed to connect to unique_id-service";
     LOG(error) << se.message;
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw se;
   }
 
@@ -259,10 +309,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(error) << "Failed to send compose-unique_id to unique_id-service";
     _unique_id_service_client_pool->Remove(unique_id_client_wrapper);
     span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
     throw;
   }
   _unique_id_service_client_pool->Keepalive(unique_id_client_wrapper);
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
   return _return_unique_id;
 }
 
@@ -299,6 +359,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   _post_storage_client_pool->Keepalive(post_storage_client_wrapper);
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void ComposePostHandler::_UploadUserTimelineHelper(
@@ -334,6 +399,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   _user_timeline_client_pool->Keepalive(user_timeline_client_wrapper);
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void ComposePostHandler::_UploadHomeTimelineHelper(
@@ -371,6 +441,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   _home_timeline_client_pool->Keepalive(home_timeline_client_wrapper);
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void ComposePostHandler::ComposePost(
@@ -456,6 +531,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   //   throw;
   // }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 }  // namespace social_network

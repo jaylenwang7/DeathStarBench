@@ -230,6 +230,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void UserHandler::RegisterUser(
@@ -380,6 +385,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void UserHandler::ComposeCreatorWithUsername(
@@ -540,6 +550,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     LOG(warning) << "Failed to pop a client from memcached pool";
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void UserHandler::ComposeCreatorWithUserId(
@@ -563,6 +578,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   _return = creator;
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 
 void UserHandler::Login(std::string &_return, int64_t req_id,
@@ -756,6 +776,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
   }
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
 }
 int64_t UserHandler::GetUserId(
     int64_t req_id, const std::string &username,
@@ -906,6 +931,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   span->Finish();
+// get elapsed time in microseconds
+auto chrono_finish = std::chrono::high_resolution_clock::now();
+auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
+// log the time
+LOG(info) << chrono_us << "us";
   return user_id;
 }
 
