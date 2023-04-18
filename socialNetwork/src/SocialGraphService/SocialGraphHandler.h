@@ -109,7 +109,9 @@ void SocialGraphHandler::Follow(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "follow_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
@@ -309,7 +311,9 @@ void SocialGraphHandler::Unfollow(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "unfollow_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
@@ -491,7 +495,9 @@ void SocialGraphHandler::GetFollowers(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followers_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
@@ -629,7 +635,9 @@ void SocialGraphHandler::GetFollowees(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followees_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
@@ -774,7 +782,9 @@ void SocialGraphHandler::InsertUser(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "insert_user_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
@@ -831,7 +841,9 @@ void SocialGraphHandler::FollowWithUsername(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "follow_with_username_server",
       {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -905,7 +917,9 @@ void SocialGraphHandler::UnfollowWithUsername(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "unfollow_with_username_server",
       {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);

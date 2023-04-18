@@ -113,7 +113,9 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -150,7 +152,9 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -188,7 +192,9 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_media_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -226,7 +232,9 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_unique_id_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -263,7 +271,9 @@ void ComposePostHandler::_UploadPostHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "store_post_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -296,7 +306,9 @@ void ComposePostHandler::_UploadUserTimelineHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -330,7 +342,9 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
     const std::map<std::string, std::string> &carrier) {
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_client", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -367,7 +381,9 @@ void ComposePostHandler::ComposePost(
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   // JAEGER-HERE: compose_post_server
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_post_server", {opentracing::ChildOf(parent_span->get())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);

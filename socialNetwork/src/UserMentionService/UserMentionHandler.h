@@ -46,7 +46,9 @@ void UserMentionHandler::ComposeUserMentions(
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_user_mentions_server",
       {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);

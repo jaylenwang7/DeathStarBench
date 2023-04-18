@@ -39,7 +39,9 @@ void OnReceivedWorker(const AMQP::Message &msg) {
     // Jaeger tracing
     TextMapReader span_reader(carrier);
     auto parent_span = opentracing::Tracer::Global()->Extract(span_reader);
-    auto span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto start = std::chrono::high_resolution_clock::now();
+auto span = opentracing::Tracer::Global()->StartSpan(
         "write_home_timeline_server",
         {opentracing::ChildOf(parent_span->get())});
 
