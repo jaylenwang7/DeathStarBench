@@ -21,6 +21,7 @@
 #include "../ThriftClient.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 
 // Custom Epoch (January 1, 2018 Midnight GMT = 2018-01-01T00:00:00Z)
 #define CUSTOM_EPOCH 1514764800000

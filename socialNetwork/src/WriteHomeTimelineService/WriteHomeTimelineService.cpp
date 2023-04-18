@@ -14,6 +14,7 @@
 #include "../ThriftClient.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 #include "../utils.h"
 
 using namespace social_network;

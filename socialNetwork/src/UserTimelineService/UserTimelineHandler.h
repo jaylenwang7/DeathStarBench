@@ -15,6 +15,7 @@
 #include "../ThriftClient.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 
 using namespace sw::redis;
 

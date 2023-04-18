@@ -10,6 +10,7 @@
 #include "../ClientPool.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 #include "../utils.h"
 #include "../utils_mongodb.h"
 #include "../utils_redis.h"

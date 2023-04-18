@@ -11,6 +11,7 @@
 #include "../ClientPool.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include <chrono>
 #include "../utils.h"
 
 namespace social_network {
