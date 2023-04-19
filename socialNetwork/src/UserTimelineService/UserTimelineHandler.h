@@ -362,6 +362,8 @@ LOG(info) << find_chrono_us << "us";
       });
 
   if (redis_update_map.size() > 0) {
+    // get current time
+auto redis_update_chrono_start = std::chrono::high_resolution_clock::now();
     auto redis_update_span = opentracing::Tracer::Global()->StartSpan(
         "user_timeline_redis_update_client",
         {opentracing::ChildOf(&span->context())});
@@ -386,8 +388,8 @@ LOG(info) << find_chrono_us << "us";
     }
     redis_update_span->Finish();
 // get elapsed time in microseconds
-auto update_chrono_finish = std::chrono::high_resolution_clock::now();
-auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+auto redis_update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_update_chrono_finish - redis_update_chrono_start).count();
 // log the time
 LOG(info) << update_chrono_us << "us";
   }

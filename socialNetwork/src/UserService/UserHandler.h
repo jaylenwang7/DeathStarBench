@@ -210,11 +210,6 @@ auto user_insert_chrono_finish = std::chrono::high_resolution_clock::now();
 auto user_insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(user_insert_chrono_finish - user_insert_chrono_start).count();
 // log the time
 LOG(info) << user_insert_chrono_us << "us";
-// get elapsed time in microseconds
-auto insert_chrono_finish = std::chrono::high_resolution_clock::now();
-auto insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(insert_chrono_finish - insert_chrono_start).count();
-// log the time
-LOG(info) << insert_chrono_us << "us";
     bson_destroy(new_doc);
   }
   bson_destroy(query);
@@ -376,11 +371,6 @@ auto user_insert_chrono_finish = std::chrono::high_resolution_clock::now();
 auto user_insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(user_insert_chrono_finish - user_insert_chrono_start).count();
 // log the time
 LOG(info) << user_insert_chrono_us << "us";
-// get elapsed time in microseconds
-auto insert_chrono_finish = std::chrono::high_resolution_clock::now();
-auto insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(insert_chrono_finish - insert_chrono_start).count();
-// log the time
-LOG(info) << insert_chrono_us << "us";
     bson_destroy(new_doc);
   }
   bson_destroy(query);

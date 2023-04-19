@@ -118,7 +118,7 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
           // get current time
 auto mongo_chrono_start = std::chrono::high_resolution_clock::now();
-auto mongo_span = openntracing::Tracer::Global()->StartSpan(
+auto mongo_span = opentracing::Tracer::Global()->StartSpan(
               "url_mongo_insert_client",
               { opentracing::ChildOf(&span->context()) });
 
