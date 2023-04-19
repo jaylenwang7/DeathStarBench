@@ -84,7 +84,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       idx++;
     }
 
-    auto get_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto get_chrono_start = std::chrono::high_resolution_clock::now();
+auto get_span = opentracing::Tracer::Global()->StartSpan(
         "compose_user_mentions_memcached_get_client",
         {opentracing::ChildOf(&span->context())});
     rc = memcached_mget(client, keys, key_sizes, usernames.size());
@@ -96,6 +98,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       se.message = memcached_strerror(client, rc);
       memcached_pool_push(_memcached_client_pool, client);
       get_span->Finish();
+// get elapsed time in microseconds
+auto get_chrono_finish = std::chrono::high_resolution_clock::now();
+auto get_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(get_chrono_finish - get_chrono_start).count();
+// log the time
+LOG(info) << get_chrono_us << "us";
       throw se;
     }
 
@@ -123,6 +130,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         se.message =
             "Cannot get usernames of request " + std::to_string(req_id);
         get_span->Finish();
+// get elapsed time in microseconds
+auto get_chrono_finish = std::chrono::high_resolution_clock::now();
+auto get_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(get_chrono_finish - get_chrono_start).count();
+// log the time
+LOG(info) << get_chrono_us << "us";
         throw se;
       }
       UserMention new_user_mention;
@@ -139,6 +151,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     memcached_quit(client);
     memcached_pool_push(_memcached_client_pool, client);
     get_span->Finish();
+// get elapsed time in microseconds
+auto get_chrono_finish = std::chrono::high_resolution_clock::now();
+auto get_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(get_chrono_finish - get_chrono_start).count();
+// log the time
+LOG(info) << get_chrono_us << "us";
     for (int i = 0; i < usernames.size(); ++i) {
       delete keys[i];
     }
@@ -183,7 +200,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       bson_append_array_end(&query_child_0, &query_username_list);
       bson_append_document_end(query, &query_child_0);
 
-      auto find_span = opentracing::Tracer::Global()->StartSpan(
+      // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
           "compose_user_mentions_mongo_find_client",
           {opentracing::ChildOf(&span->context())});
       mongoc_cursor_t *cursor =
@@ -204,6 +223,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           mongoc_collection_destroy(collection);
           mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
           find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
           throw se;
         }
         if (bson_iter_init_find(&iter, doc, "username")) {
@@ -217,6 +241,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           mongoc_collection_destroy(collection);
           mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
           find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
           throw se;
         }
         user_mentions.emplace_back(new_user_mention);
@@ -226,6 +255,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       mongoc_collection_destroy(collection);
       mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
       find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
     }
   }
 

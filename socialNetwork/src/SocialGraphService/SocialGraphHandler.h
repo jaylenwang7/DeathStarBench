@@ -150,7 +150,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                                   BCON_INT64(timestamp), "}", "}");
         bson_error_t error;
         bson_t reply;
-        auto update_span = opentracing::Tracer::Global()->StartSpan(
+        // get current time
+auto update_chrono_start = std::chrono::high_resolution_clock::now();
+auto update_span = opentracing::Tracer::Global()->StartSpan(
             "mongo_update_client", {opentracing::ChildOf(&span->context())});
         bool updated = mongoc_collection_find_and_modify(
             collection, search_not_exist, nullptr, update, nullptr, false,
@@ -169,6 +171,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           throw se;
         }
         update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
         bson_destroy(&reply);
         bson_destroy(update);
         bson_destroy(search_not_exist);
@@ -205,7 +212,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                                   BCON_INT64(user_id), "timestamp",
                                   BCON_INT64(timestamp), "}", "}");
         bson_error_t error;
-        auto update_span = opentracing::Tracer::Global()->StartSpan(
+        // get current time
+auto update_chrono_start = std::chrono::high_resolution_clock::now();
+auto update_span = opentracing::Tracer::Global()->StartSpan(
             "social_graph_mongo_update_client",
             {opentracing::ChildOf(&span->context())});
         bson_t reply;
@@ -226,6 +235,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           throw se;
         }
         update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
         bson_destroy(update);
         bson_destroy(&reply);
         bson_destroy(search_not_exist);
@@ -234,7 +248,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       });
 
   std::future<void> redis_update_future = std::async(std::launch::async, [&]() {
-    auto redis_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
         "social_graph_redis_update_client",
         {opentracing::ChildOf(&span->context())});
 
@@ -287,6 +303,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       }
     }
     redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
   });
 
   try {
@@ -349,7 +370,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                                   BCON_INT64(followee_id), "}", "}");
         bson_t reply;
         bson_error_t error;
-        auto update_span = opentracing::Tracer::Global()->StartSpan(
+        // get current time
+auto update_chrono_start = std::chrono::high_resolution_clock::now();
+auto update_span = opentracing::Tracer::Global()->StartSpan(
             "social_graph_mongo_delete_client",
             {opentracing::ChildOf(&span->context())});
         bool updated = mongoc_collection_find_and_modify(
@@ -369,6 +392,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           throw se;
         }
         update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
         bson_destroy(update);
         bson_destroy(query);
         bson_destroy(&reply);
@@ -403,7 +431,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                                   BCON_INT64(user_id), "}", "}");
         bson_t reply;
         bson_error_t error;
-        auto update_span = opentracing::Tracer::Global()->StartSpan(
+        // get current time
+auto update_chrono_start = std::chrono::high_resolution_clock::now();
+auto update_span = opentracing::Tracer::Global()->StartSpan(
             "social_graph_mongo_delete_client",
             {opentracing::ChildOf(&span->context())});
         bool updated = mongoc_collection_find_and_modify(
@@ -423,6 +453,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           throw se;
         }
         update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
         bson_destroy(update);
         bson_destroy(query);
         bson_destroy(&reply);
@@ -431,7 +466,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       });
 
   std::future<void> redis_update_future = std::async(std::launch::async, [&]() {
-    auto redis_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
         "social_graph_redis_update_client",
         {opentracing::ChildOf(&span->context())});
     {
@@ -479,6 +516,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       }
     }
     redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
   });
 
   try {
@@ -511,7 +553,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followers_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "social_graph_redis_get_client",
       {opentracing::ChildOf(&span->context())});
 
@@ -533,6 +577,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw err;
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
 
   // If user_id in the sodical graph Redis server, read from Redis
   if (followers_str.size() > 0) {
@@ -562,7 +611,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
     bson_t *query = bson_new();
     BSON_APPEND_INT64(query, "user_id", user_id);
-    auto find_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
         "social_graph_mongo_find_client",
         {opentracing::ChildOf(&span->context())});
     mongoc_cursor_t *cursor =
@@ -599,6 +650,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         index++;
       }
       find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
       bson_destroy(query);
       mongoc_cursor_destroy(cursor);
       mongoc_collection_destroy(collection);
@@ -606,7 +662,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
       // Update Redis
       std::string key = std::to_string(user_id) + ":followers";
-      auto redis_insert_span = opentracing::Tracer::Global()->StartSpan(
+      // get current time
+auto redis_insert_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_insert_span = opentracing::Tracer::Global()->StartSpan(
           "social_graph_redis_insert_client",
           {opentracing::ChildOf(&span->context())});
       try {
@@ -625,9 +683,19 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         throw err;
       }
       redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
     } else {
       LOG(warning) << "user_id: " << user_id << " not found";
       find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
       bson_destroy(query);
       mongoc_cursor_destroy(cursor);
       mongoc_collection_destroy(collection);
@@ -656,7 +724,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followees_server", {opentracing::ChildOf(parent_span->get())});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "social_graph_redis_get_client",
       {opentracing::ChildOf(&span->context())});
 
@@ -678,6 +748,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw err;
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
 
   // If user_id in the sodical graph Redis server, read from Redis
   if (followees_str.size() > 0) {
@@ -689,6 +764,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   // update Redis.
   else {
     redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
     mongoc_client_t *mongodb_client =
         mongoc_client_pool_pop(_mongodb_client_pool);
     if (!mongodb_client) {
@@ -708,7 +788,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
     bson_t *query = bson_new();
     BSON_APPEND_INT64(query, "user_id", user_id);
-    auto find_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
         "social_graph_mongo_find_client",
         {opentracing::ChildOf(&span->context())});
     mongoc_cursor_t *cursor =
@@ -758,6 +840,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       }
 
       find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
       bson_destroy(query);
       mongoc_cursor_destroy(cursor);
       mongoc_collection_destroy(collection);
@@ -765,7 +852,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
       // Update redis
       std::string key = std::to_string(user_id) + ":followees";
-      auto redis_insert_span = opentracing::Tracer::Global()->StartSpan(
+      // get current time
+auto redis_insert_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_insert_span = opentracing::Tracer::Global()->StartSpan(
           "social_graph_redis_insert_client",
           {opentracing::ChildOf(&span->context())});
       try {
@@ -784,6 +873,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         throw err;
       }
       redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
     }
   }
   span->Finish();
@@ -829,12 +923,19 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   bson_t *new_doc = BCON_NEW("user_id", BCON_INT64(user_id), "followers", "[",
                              "]", "followees", "[", "]");
   bson_error_t error;
-  auto insert_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto insert_chrono_start = std::chrono::high_resolution_clock::now();
+auto insert_span = opentracing::Tracer::Global()->StartSpan(
       "social_graph_mongo_insert_client",
       {opentracing::ChildOf(&span->context())});
   bool inserted = mongoc_collection_insert_one(collection, new_doc, nullptr,
                                                nullptr, &error);
   insert_span->Finish();
+// get elapsed time in microseconds
+auto insert_chrono_finish = std::chrono::high_resolution_clock::now();
+auto insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(insert_chrono_finish - insert_chrono_start).count();
+// log the time
+LOG(info) << insert_chrono_us << "us";
   if (!inserted) {
     LOG(error) << "Failed to insert social graph for user " << user_id
                << " to MongoDB: " << error.message;

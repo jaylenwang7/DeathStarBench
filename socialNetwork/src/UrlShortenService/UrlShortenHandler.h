@@ -116,7 +116,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
             throw se;
           }
 
-          auto mongo_span = opentracing::Tracer::Global()->StartSpan(
+          // get current time
+auto mongo_chrono_start = std::chrono::high_resolution_clock::now();
+auto mongo_span = openntracing::Tracer::Global()->StartSpan(
               "url_mongo_insert_client",
               { opentracing::ChildOf(&span->context()) });
 
@@ -151,6 +153,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
           mongoc_collection_destroy(collection);
           mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
           mongo_span->Finish();
+// get elapsed time in microseconds
+auto mongo_chrono_finish = std::chrono::high_resolution_clock::now();
+auto mongo_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(mongo_chrono_finish - mongo_chrono_start).count();
+// log the time
+LOG(info) << mongo_chrono_us << "us";
         });
 
   }

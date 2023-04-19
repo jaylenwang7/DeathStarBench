@@ -74,7 +74,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
 
   auto shortened_urls_future = std::async(std::launch::async, [&]() {
-    auto url_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto url_chrono_start = std::chrono::high_resolution_clock::now();
+auto url_span = opentracing::Tracer::Global()->StartSpan(
         "compose_urls_client", {opentracing::ChildOf(&span->context())});
 
     std::map<std::string, std::string> url_writer_text_map;
@@ -102,7 +104,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   });
 
   auto user_mention_future = std::async(std::launch::async, [&]() {
-    auto user_mention_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto user_mention_chrono_start = std::chrono::high_resolution_clock::now();
+auto user_mention_span = opentracing::Tracer::Global()->StartSpan(
         "compose_user_mentions_client",
         {opentracing::ChildOf(&span->context())});
 

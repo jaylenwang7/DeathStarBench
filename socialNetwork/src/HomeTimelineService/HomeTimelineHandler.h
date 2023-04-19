@@ -110,7 +110,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_server", {opentracing::ChildOf(parent_span->get())});
 
   // Find followers of the user
-  auto followers_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto followers_chrono_start = std::chrono::high_resolution_clock::now();
+auto followers_span = opentracing::Tracer::Global()->StartSpan(
       "get_followers_client", {opentracing::ChildOf(&span->context())});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
@@ -135,13 +137,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
   _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
   followers_span->Finish();
+// get elapsed time in microseconds
+auto followers_chrono_finish = std::chrono::high_resolution_clock::now();
+auto followers_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(followers_chrono_finish - followers_chrono_start).count();
+// log the time
+LOG(info) << followers_chrono_us << "us";
 
   std::set<int64_t> followers_id_set(followers_id.begin(), followers_id.end());
   followers_id_set.insert(user_mentions_id.begin(), user_mentions_id.end());
 
   // Update Redis ZSet
   // Zset key: follower_id, Zset value: post_id_str, Zset score: timestamp_str
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_redis_update_client",
       {opentracing::ChildOf(&span->context())});
   std::string post_id_str = std::to_string(post_id);
@@ -211,6 +220,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     }
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
 }
 
 
@@ -232,7 +246,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     return;
   }
 
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "read_home_timeline_redis_find_client",
       {opentracing::ChildOf(&span->context())});
 
@@ -259,6 +275,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw err;
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
 
   std::vector<int64_t> post_ids;
   for (auto &post_id_str : post_ids_str) {

@@ -139,12 +139,19 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   bson_append_array_end(new_doc, &media_list);
 
   bson_error_t error;
-  auto insert_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto insert_chrono_start = std::chrono::high_resolution_clock::now();
+auto insert_span = opentracing::Tracer::Global()->StartSpan(
       "post_storage_mongo_insert_client",
       {opentracing::ChildOf(&span->context())});
   bool inserted = mongoc_collection_insert_one(collection, new_doc, nullptr,
                                                nullptr, &error);
   insert_span->Finish();
+// get elapsed time in microseconds
+auto insert_chrono_finish = std::chrono::high_resolution_clock::now();
+auto insert_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(insert_chrono_finish - insert_chrono_start).count();
+// log the time
+LOG(info) << insert_chrono_us << "us";
 
   if (!inserted) {
     LOG(error) << "Error: Failed to insert post to MongoDB: " << error.message;
@@ -197,7 +204,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
   size_t post_mmc_size;
   uint32_t memcached_flags;
-  auto get_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto get_chrono_start = std::chrono::high_resolution_clock::now();
+auto get_span = opentracing::Tracer::Global()->StartSpan(
       "post_storage_mmc_get_client", {opentracing::ChildOf(&span->context())});
   char *post_mmc =
       memcached_get(memcached_client, post_id_str.c_str(), post_id_str.length(),
@@ -211,6 +220,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   }
   memcached_pool_push(_memcached_client_pool, memcached_client);
   get_span->Finish();
+// get elapsed time in microseconds
+auto get_chrono_finish = std::chrono::high_resolution_clock::now();
+auto get_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(get_chrono_finish - get_chrono_start).count();
+// log the time
+LOG(info) << get_chrono_us << "us";
 
   if (post_mmc) {
     LOG(debug) << "Get post " << post_id << " cache hit from Memcached";
@@ -265,7 +279,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
     bson_t *query = bson_new();
     BSON_APPEND_INT64(query, "post_id", post_id);
-    auto find_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
         "post_storage_mongo_find_client",
         {opentracing::ChildOf(&span->context())});
     mongoc_cursor_t *cursor =
@@ -273,6 +289,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     const bson_t *doc;
     bool found = mongoc_cursor_next(cursor, &doc);
     find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
     if (!found) {
       bson_error_t error;
       if (mongoc_cursor_error(cursor, &error)) {
@@ -340,7 +361,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         se.message = "Failed to pop a client from memcached pool";
         throw se;
       }
-      auto set_span = opentracing::Tracer::Global()->StartSpan(
+      // get current time
+auto set_chrono_start = std::chrono::high_resolution_clock::now();
+auto set_span = opentracing::Tracer::Global()->StartSpan(
           "post_storage_mmc_set_client",
           {opentracing::ChildOf(&span->context())});
 
@@ -353,6 +376,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                      << memcached_strerror(memcached_client, memcached_rc);
       }
       set_span->Finish();
+// get elapsed time in microseconds
+auto set_chrono_finish = std::chrono::high_resolution_clock::now();
+auto set_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(set_chrono_finish - set_chrono_start).count();
+// log the time
+LOG(info) << set_chrono_us << "us";
       bson_free(post_json_char);
       memcached_pool_push(_memcached_client_pool, memcached_client);
     }
@@ -433,7 +461,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   char *return_value;
   size_t return_value_length;
   uint32_t flags;
-  auto get_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto get_chrono_start = std::chrono::high_resolution_clock::now();
+auto get_span = opentracing::Tracer::Global()->StartSpan(
       "post_storage_mmc_mget_client", {opentracing::ChildOf(&span->context())});
 
   while (true) {
@@ -487,6 +517,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     free(return_value);
   }
   get_span->Finish();
+// get elapsed time in microseconds
+auto get_chrono_finish = std::chrono::high_resolution_clock::now();
+auto get_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(get_chrono_finish - get_chrono_start).count();
+// log the time
+LOG(info) << get_chrono_us << "us";
   memcached_quit(memcached_client);
   memcached_pool_push(_memcached_client_pool, memcached_client);
   for (int i = 0; i < post_ids.size(); ++i) {
@@ -537,7 +572,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         mongoc_collection_find_with_opts(collection, query, nullptr, nullptr);
     const bson_t *doc;
 
-    auto find_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
         "mongo_find_client", {opentracing::ChildOf(&span->context())});
     while (true) {
       bool found = mongoc_cursor_next(cursor, &doc);
@@ -577,6 +614,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       bson_free(post_json_char);
     }
     find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
     bson_error_t error;
     if (mongoc_cursor_error(cursor, &error)) {
       LOG(warning) << error.message;
@@ -606,7 +648,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
         se.message = "Failed to pop a client from memcached pool";
         throw se;
       }
-      auto set_span = opentracing::Tracer::Global()->StartSpan(
+      // get current time
+auto set_chrono_start = std::chrono::high_resolution_clock::now();
+auto set_span = opentracing::Tracer::Global()->StartSpan(
           "mmc_set_client", {opentracing::ChildOf(&span->context())});
       for (auto &it : post_json_map) {
         std::string id_str = std::to_string(it.first);
@@ -616,6 +660,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       }
       memcached_pool_push(_memcached_client_pool, _memcached_client);
       set_span->Finish();
+// get elapsed time in microseconds
+auto set_chrono_finish = std::chrono::high_resolution_clock::now();
+auto set_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(set_chrono_finish - set_chrono_start).count();
+// log the time
+LOG(info) << set_chrono_us << "us";
     }));
   }
 

@@ -128,13 +128,20 @@ auto span = opentracing::Tracer::Global()->StartSpan(
                "]", "$position", BCON_INT32(0), "}", "}");
   bson_error_t error;
   bson_t reply;
-  auto update_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto update_chrono_start = std::chrono::high_resolution_clock::now();
+auto update_span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_mongo_insert_client",
       {opentracing::ChildOf(&span->context())});
   bool updated = mongoc_collection_find_and_modify(collection, query, nullptr,
                                                    update, nullptr, false, true,
                                                    true, &reply, &error);
   update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
 
   if (!updated) {
     // update the newly inserted document (upsert: false)
@@ -163,7 +170,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
 
   // Update user's timeline in redis
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_redis_update_client",
       {opentracing::ChildOf(&span->context())});
   try {
@@ -183,6 +192,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw err;
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
   span->Finish();
 // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
@@ -209,7 +223,9 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     return;
   }
 
-  auto redis_span = opentracing::Tracer::Global()->StartSpan(
+  // get current time
+auto redis_chrono_start = std::chrono::high_resolution_clock::now();
+auto redis_span = opentracing::Tracer::Global()->StartSpan(
       "read_user_timeline_redis_find_client",
       {opentracing::ChildOf(&span->context())});
 
@@ -230,6 +246,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     throw err;
   }
   redis_span->Finish();
+// get elapsed time in microseconds
+auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
+auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
+// log the time
+LOG(info) << redis_chrono_us << "us";
 
   std::vector<int64_t> post_ids;
   for (auto &post_id_str : post_ids_str) {
@@ -262,12 +283,19 @@ auto span = opentracing::Tracer::Global()->StartSpan(
     bson_t *opts = BCON_NEW("projection", "{", "posts", "{", "$slice", "[",
                             BCON_INT32(0), BCON_INT32(stop), "]", "}", "}");
 
-    auto find_span = opentracing::Tracer::Global()->StartSpan(
+    // get current time
+auto find_chrono_start = std::chrono::high_resolution_clock::now();
+auto find_span = opentracing::Tracer::Global()->StartSpan(
         "user_timeline_mongo_find_client",
         {opentracing::ChildOf(&span->context())});
     mongoc_cursor_t *cursor =
         mongoc_collection_find_with_opts(collection, query, opts, nullptr);
     find_span->Finish();
+// get elapsed time in microseconds
+auto find_chrono_finish = std::chrono::high_resolution_clock::now();
+auto find_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(find_chrono_finish - find_chrono_start).count();
+// log the time
+LOG(info) << find_chrono_us << "us";
     const bson_t *doc;
     bool found = mongoc_cursor_next(cursor, &doc);
     if (found) {
@@ -357,6 +385,11 @@ auto span = opentracing::Tracer::Global()->StartSpan(
       throw err;
     }
     redis_update_span->Finish();
+// get elapsed time in microseconds
+auto update_chrono_finish = std::chrono::high_resolution_clock::now();
+auto update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(update_chrono_finish - update_chrono_start).count();
+// log the time
+LOG(info) << update_chrono_us << "us";
   }
 
   try {
