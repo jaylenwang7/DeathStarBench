@@ -391,7 +391,7 @@ auto redis_update_chrono_start = std::chrono::high_resolution_clock::now();
 auto redis_update_chrono_finish = std::chrono::high_resolution_clock::now();
 auto redis_update_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_update_chrono_finish - redis_update_chrono_start).count();
 // log the time
-LOG(info) << update_chrono_us << "us";
+LOG(info) << redis_update_chrono_us << "us";
   }
 
   try {
