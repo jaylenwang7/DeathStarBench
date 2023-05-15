@@ -197,12 +197,12 @@ auto redis_chrono_finish = std::chrono::high_resolution_clock::now();
 auto redis_chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(redis_chrono_finish - redis_chrono_start).count();
 // log the time
 LOG(info) << redis_chrono_us << "us";
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void UserTimelineHandler::ReadUserTimeline(
@@ -400,12 +400,12 @@ LOG(info) << redis_update_chrono_us << "us";
     LOG(error) << "Failed to get post from post-storage-service";
     throw;
   }
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 }  // namespace social_network

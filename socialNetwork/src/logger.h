@@ -17,6 +17,8 @@ namespace social_network {
 #define LOG(severity) \
     BOOST_LOG_TRIVIAL(severity) << "(" << __FILENAME__ << ":" \
     << __LINE__ << ":" << __FUNCTION__ << ") "
+#define LOG_TIME(severity) \
+    BOOST_LOG_TRIVIAL(severity)
 
 void init_logger(const char* filename = nullptr,
                  boost::log::trivial::severity_level severity =

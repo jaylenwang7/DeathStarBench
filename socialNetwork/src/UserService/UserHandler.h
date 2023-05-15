@@ -236,12 +236,12 @@ LOG(info) << user_insert_chrono_us << "us";
     _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
   }
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void UserHandler::RegisterUser(
@@ -398,12 +398,12 @@ LOG(info) << user_insert_chrono_us << "us";
     _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
   }
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void UserHandler::ComposeCreatorWithUsername(
@@ -584,12 +584,12 @@ LOG(info) << id_set_chrono_us << "us";
   } else {
     LOG(warning) << "Failed to pop a client from memcached pool";
   }
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void UserHandler::ComposeCreatorWithUserId(
@@ -612,12 +612,12 @@ auto span = opentracing::Tracer::Global()->StartSpan(
 
   _return = creator;
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void UserHandler::Login(std::string &_return, int64_t req_id,
@@ -831,12 +831,12 @@ LOG(info) << set_login_chrono_us << "us";
       memcached_pool_push(_memcached_client_pool, memcached_client);
     }
   }
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 int64_t UserHandler::GetUserId(
     int64_t req_id, const std::string &username,
@@ -1007,12 +1007,12 @@ LOG(info) << set_login_chrono_us << "us";
     }
   }
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
   return user_id;
 }
 

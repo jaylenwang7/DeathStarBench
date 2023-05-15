@@ -168,12 +168,12 @@ LOG(info) << insert_chrono_us << "us";
   mongoc_collection_destroy(collection);
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 
 void PostStorageHandler::ReadPost(
@@ -386,12 +386,12 @@ LOG(info) << set_chrono_us << "us";
     }
   }
 
-  span->Finish();
-// get elapsed time in microseconds
+  // get elapsed time in microseconds
 auto chrono_finish = std::chrono::high_resolution_clock::now();
 auto chrono_us = std::chrono::duration_cast<std::chrono::microseconds>(chrono_finish - chrono_start).count();
 // log the time
-LOG(info) << chrono_us << "us";
+LOG_TIME(info) << span->operation_name() << chrono_us << "us";
+span->Finish();
 }
 void PostStorageHandler::ReadPosts(
     std::vector<Post> &_return, int64_t req_id,
