@@ -1,126 +1,188 @@
 {
   "secret": "secret",
   "unique-id-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "unique-id-service",
     "port": 9090
   },
   "movie-id-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-id-service",
     "port": 9090
   },
   "movie-id-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-id-mongodb",
     "port": 27017
   },
   "movie-id-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-id-memcached",
     "port": 11211
   },
   "user-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-mongodb",
     "port": 27017
   },
   "user-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-memcached",
     "port": 11211
   },
   "text-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "text-service",
     "port": 9090
   },
   "rating-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "rating-service",
     "port": 9090
   },
   "rating-redis": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "rating-redis",
     "port": 6379
   },
   "user-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-service",
     "port": 9090
   },
   "compose-review-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "compose-review-service",
     "port": 9090
   },
   "compose-review-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "compose-review-memcached",
     "port": 11211
   },
   "review-storage-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "review-storage-service",
     "port": 9090
   },
   "review-storage-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "review-storage-mongodb",
     "port": 27017
   },
   "review-storage-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "review-storage-memcached",
     "port": 11211
   },
   "user-review-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-review-service",
     "port": 9090
   },
   "user-review-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-review-mongodb",
     "port": 27017
   },
   "user-review-redis": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "user-review-redis",
     "port": 6379
   },
   "movie-review-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-review-service",
     "port": 9090
   },
   "movie-review-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-review-mongodb",
     "port": 27017
   },
   "movie-review-redis": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-review-redis",
     "port": 6379
   },
   "cast-info-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "cast-info-service",
     "port": 9090
   },
   "cast-info-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "cast-info-mongodb",
     "port": 27017
   },
   "cast-info-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "cast-info-memcached",
     "port": 11211
   },
   "plot-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "plot-service",
     "port": 9090
   },
   "plot-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "plot-mongodb",
     "port": 27017
   },
   "plot-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "plot-memcached",
     "port": 11211
   },
   "movie-info-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-info-service",
     "port": 9090
   },
   "movie-info-mongodb": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-info-mongodb",
     "port": 27017
   },
   "movie-info-memcached": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "movie-info-memcached",
     "port": 11211
   },
   "page-service": {
+    "keepalive_ms": 10000,
+    "timeout_ms": 10000,
     "addr": "page-service",
     "port": 9090
   }
