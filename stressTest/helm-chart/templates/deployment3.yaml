@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-deployment-3
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-3
+  template:
+    metadata:
+      labels:
+        app: stress-3
+    spec:
+      containers:
+        - name: stress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--cpu"
+            - "1000"  # Use a high number to utilize all available CPUs
+            - "--io"
+            - "1"
+            - "--vm"
+            - "1"
+            - "--vm-bytes"
+            - "128M"
