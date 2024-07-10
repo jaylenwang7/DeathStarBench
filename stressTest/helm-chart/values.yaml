@@ -1,0 +1,8 @@
+replicaCount: 4
+
+image:
+  repository: progrium/stress
+  tag: latest
+  pullPolicy: IfNotPresent
+
+namespace: stress
