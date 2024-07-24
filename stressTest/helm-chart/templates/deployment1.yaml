@@ -18,7 +18,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             - "--cpu"
-            - "100"  # Use a high number to utilize all available CPUs
+            - "1"
             - "--io"
             - "1"
             - "--vm"
