@@ -11,9 +11,9 @@ spec:
     metadata:
       labels:
         app: stress-2
-    nodeSelector:
-      kubernetes.io/hostname: node2
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: node2
       containers:
         - name: stress
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
