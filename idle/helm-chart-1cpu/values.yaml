@@ -1,0 +1,4 @@
+image:
+  repository: ubuntu:trusty
+  tag: latest
+  pullPolicy: IfNotPresent

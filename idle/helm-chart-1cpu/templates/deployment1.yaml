@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idle-deployment-1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idle-1
+  template:
+    metadata:
+      labels:
+        app: idle-1
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node1
+      containers:
+        - name: stress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            limits:
+              cpu: 2
+              memory: 256Mi
+            requests:
+              cpu: 2
+              memory: 256Mi
