@@ -4,5 +4,3 @@ image:
   repository: progrium/stress
   tag: latest
   pullPolicy: IfNotPresent
-
-namespace: stress
