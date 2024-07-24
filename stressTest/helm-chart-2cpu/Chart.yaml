@@ -1,0 +1,4 @@
+apiVersion: v2
+name: stress-chart
+description: A Helm chart for deploying stress benchmark pods
+version: 0.1.0

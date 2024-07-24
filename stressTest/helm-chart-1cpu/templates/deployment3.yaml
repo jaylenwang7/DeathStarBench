@@ -11,11 +11,20 @@ spec:
     metadata:
       labels:
         app: stress-3
+    nodeSelector:
+      kubernetes.io/hostname: node3
     spec:
       containers:
         - name: stress
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            limits:
+              cpu: 2
+              memory: 256Mi
+            requests:
+              cpu: 2
+              memory: 256Mi
           args:
             - "--cpu"
             - "1"
