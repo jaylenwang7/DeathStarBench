@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stress-deployment-2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stress-2
+  template:
+    metadata:
+      labels:
+        app: stress-2
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node2
+      containers:
+        - name: stress
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            limits:
+              cpu: 8
+              memory: 1024Mi
+            requests:
+              cpu: 8
+              memory: 1024Mi
+          args:
+            - "--cpu"
+            - "2"
+            - "--io"
+            - "1"
+            - "--vm"
+            - "1"
+            - "--vm-bytes"
+            - "256M"
