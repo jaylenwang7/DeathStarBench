@@ -15,9 +15,11 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: node2
       containers:
-        - name: stress
+        - name: idle
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do sleep 30; done;"]
           resources:
             limits:
               cpu: 2
