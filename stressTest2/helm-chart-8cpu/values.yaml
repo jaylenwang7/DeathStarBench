@@ -12,7 +12,7 @@ resources:
     memory: 1280Mi
 
 stress:
-  cpu: "2"
+  cpu: "8"
   io: "1"
   vm: "1"
-  vmBytes: "256M"
+  vmBytes: "1024M"

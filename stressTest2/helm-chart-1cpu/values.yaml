@@ -1,6 +1,18 @@
-replicaCount: 4
-
 image:
   repository: progrium/stress
   tag: latest
   pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 10
+    memory: 1280Mi
+  requests:
+    cpu: 10
+    memory: 1280Mi
+
+stress:
+  cpu: "1"
+  io: "1"
+  vm: "1"
+  vmBytes: "128M"
