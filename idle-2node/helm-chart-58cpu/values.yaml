@@ -1,0 +1,4 @@
+image:
+  repository: ubuntu
+  tag: trusty
+  pullPolicy: IfNotPresent

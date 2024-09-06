@@ -20,17 +20,17 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources:
             limits:
-              cpu: 18
-              memory: 2304Mi
+              cpu: 60
+              memory: 7680Mi
             requests:
-              cpu: 18
-              memory: 2304Mi
+              cpu: 60
+              memory: 7680Mi
           args:
             - "--cpu"
-            - "16"
+            - "58"
             - "--io"
             - "1"
             - "--vm"
             - "1"
             - "--vm-bytes"
-            - "2048M"
+            - "7424M"
