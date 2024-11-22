@@ -5,21 +5,18 @@ kind: PersistentVolume
 metadata:
   name: {{ .Values.name }}-pv
   labels:
-    app-name: {{ .Values.name }}
-    type: local
-  annotations:
-    "helm.sh/hook": "pre-install"
-    "helm.sh/hook-weight": "-5"
+    app: {{ .Values.name }}
+    type: mongodb-storage
 spec:
+  capacity:
+    storage: {{ .Values.global.mongodb.persistentVolume.size }}
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
-  capacity:
-    storage: {{ .Values.global.mongodb.persistentVolume.size }}
-  storageClassName: manual
+  storageClassName: ""  # Important for static binding
   hostPath:
-    path: {{ .Values.global.mongodb.persistentVolume.hostPath.path }}/{{ .Values.name }}-pv
+    path: {{ .Values.global.mongodb.persistentVolume.hostPath.path }}/{{ .Values.name }}-data
     type: DirectoryOrCreate
 {{- end }}
 {{- end }}

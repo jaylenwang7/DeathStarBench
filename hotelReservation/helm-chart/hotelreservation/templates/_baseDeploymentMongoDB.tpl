@@ -4,11 +4,12 @@ kind: Deployment
 metadata:
   labels:
     service: {{ .Values.name }}
+    app: {{ .Values.name }}
   name: {{ .Values.name }}
-  annotations:
-    "helm.sh/hook-weight": "10"
 spec:
   replicas: {{ .Values.replicas | default .Values.global.replicas }}
+  strategy:
+    type: Recreate  # Required for stable storage handling
   selector:
     matchLabels:
       service: {{ .Values.name }}
@@ -47,20 +48,13 @@ spec:
         {{- if $.Values.global.mongodb.persistentVolume.hostPath.enabled }}
         volumeMounts:
         - mountPath: /data/db
-          name: {{ $.Values.name }}-path
+          name: {{ $.Values.name }}-data
         {{- end }}
       {{- end }}
       volumes:
-      - name: {{ .Values.name }}-path
+      - name: {{ .Values.name }}-data
         persistentVolumeClaim:
           claimName: {{ .Values.name }}-pvc
-      {{- if hasKey .Values "topologySpreadConstraints" }}
-      topologySpreadConstraints:
-        {{ tpl .Values.topologySpreadConstraints . | nindent 6 | trim }}
-      {{- else if hasKey $.Values.global  "topologySpreadConstraints" }}
-      topologySpreadConstraints:
-        {{ tpl $.Values.global.topologySpreadConstraints . | nindent 6 | trim }}
-      {{- end }}
       hostname: {{ $.Values.name }}
       restartPolicy: {{ .Values.restartPolicy | default .Values.global.restartPolicy}}
 {{- end}}
