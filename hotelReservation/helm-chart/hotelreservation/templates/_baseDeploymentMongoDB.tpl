@@ -53,8 +53,12 @@ spec:
       {{- end }}
       volumes:
       - name: {{ .Values.name }}-data
+        {{- if $.Values.global.mongodb.persistentVolume.enabled }}
         persistentVolumeClaim:
           claimName: {{ .Values.name }}-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
       hostname: {{ $.Values.name }}
       restartPolicy: {{ .Values.restartPolicy | default .Values.global.restartPolicy}}
 {{- end}}
