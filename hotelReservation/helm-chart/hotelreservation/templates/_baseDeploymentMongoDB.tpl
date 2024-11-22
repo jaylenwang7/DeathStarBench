@@ -5,6 +5,8 @@ metadata:
   labels:
     service: {{ .Values.name }}
   name: {{ .Values.name }}
+  annotations:
+    "helm.sh/hook-weight": "10"
 spec:
   replicas: {{ .Values.replicas | default .Values.global.replicas }}
   selector:
@@ -42,7 +44,7 @@ spec:
         resources:
           {{ tpl $.Values.global.resources $ | nindent 6 | trim }}
         {{- end }}
-	{{- if $.Values.global.mongodb.persistentVolume.hostPath.enabled }}
+        {{- if $.Values.global.mongodb.persistentVolume.hostPath.enabled }}
         volumeMounts:
         - mountPath: /data/db
           name: {{ $.Values.name }}-path
