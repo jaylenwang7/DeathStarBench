@@ -6,7 +6,7 @@ ports:
  
 container:
   image: memcached
-  imageVersion: latest
+  imageVersion: 1.6.32
   name: hotel-reserv-reservation-mmc
   ports:
   - containerPort: 11211

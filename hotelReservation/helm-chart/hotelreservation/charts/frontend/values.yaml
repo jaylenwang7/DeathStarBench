@@ -9,6 +9,7 @@ ports:
 container:
   command: frontend
   image: deathstarbench/hotel-reservation
+  imageVersion: 0.3.5
   name: hotel-reserv-frontend
   ports:
   - containerPort: 5000

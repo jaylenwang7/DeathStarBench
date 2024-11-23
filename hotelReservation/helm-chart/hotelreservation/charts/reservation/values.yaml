@@ -7,6 +7,7 @@ ports:
 container:
   command: reservation
   image: deathstarbench/hotel-reservation
+  imageVersion: 0.3.5
   name: hotel-reserv-reservation
   ports:
   - containerPort: 8087
