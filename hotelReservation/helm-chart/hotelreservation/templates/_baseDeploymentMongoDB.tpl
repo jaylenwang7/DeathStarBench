@@ -3,21 +3,32 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    service: {{ .Values.name }}
-    app: {{ .Values.name }}
-  name: {{ .Values.name }}
+    {{- include "hotel-reservation.labels" . | nindent 4 }}
+    {{- include "hotel-reservation.backendLabels" . | nindent 4 }}
+    service: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
+  name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
 spec:
   replicas: {{ .Values.replicas | default .Values.global.replicas }}
-  strategy:
-    type: Recreate  # Required for stable storage handling
   selector:
     matchLabels:
-      service: {{ .Values.name }}
+      {{- include "hotel-reservation.selectorLabels" . | nindent 6 }}
+      {{- include "hotel-reservation.backendLabels" . | nindent 6 }}
+      service: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
+      app: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
   template:
     metadata:
       labels:
-        service: {{ .Values.name }}
-        app: {{ .Values.name }}
+        {{- include "hotel-reservation.labels" . | nindent 8 }}
+        {{- include "hotel-reservation.backendLabels" . | nindent 8 }}
+        service: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
+        app: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
+      {{- if hasKey $.Values "annotations" }}
+      annotations:
+        {{ tpl $.Values.annotations . | nindent 8 | trim }}
+      {{- else if hasKey $.Values.global "annotations" }}
+      annotations:
+        {{ tpl $.Values.global.annotations . | nindent 8 | trim }}
+      {{- end }}
     spec:
       containers:
       {{- with .Values.container }}
@@ -40,25 +51,45 @@ spec:
         {{- end }}
         {{- if .resources }}
         resources:
-          {{ tpl .resources $ | nindent 6 | trim }}
+          {{ tpl .resources $ | nindent 10 | trim }}
         {{- else if hasKey $.Values.global "resources" }}
         resources:
-          {{ tpl $.Values.global.resources $ | nindent 6 | trim }}
+          {{ tpl $.Values.global.resources $ | nindent 10 | trim }}
         {{- end }}
-        {{- if $.Values.global.mongodb.persistentVolume.hostPath.enabled }}
         volumeMounts:
         - mountPath: /data/db
-          name: {{ $.Values.name }}-data
-        {{- end }}
+          name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-path
       {{- end }}
       volumes:
-      - name: {{ .Values.name }}-data
-        {{- if $.Values.global.mongodb.persistentVolume.enabled }}
+      - name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-path
+	{{- if $.Values.global.mongodb.persistentVolume.enabled }}
         persistentVolumeClaim:
-          claimName: {{ .Values.name }}-pvc
+          claimName: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-pvc
         {{- else }}
         emptyDir: {}
         {{- end }}
-      hostname: {{ $.Values.name }}
+      {{- if hasKey .Values "topologySpreadConstraints" }}
+      topologySpreadConstraints:
+        {{ tpl .Values.topologySpreadConstraints . | nindent 6 | trim }}
+      {{- else if hasKey $.Values.global.mongodb "topologySpreadConstraints" }}
+      topologySpreadConstraints:
+        {{ tpl $.Values.global.mongodb.topologySpreadConstraints . | nindent 6 | trim }}
+      {{- end }}
+      hostname: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
       restartPolicy: {{ .Values.restartPolicy | default .Values.global.restartPolicy}}
+      {{- if .Values.affinity }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else if hasKey $.Values.global "affinity" }}
+      affinity: {{- toYaml .Values.global.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
+      {{- else if hasKey $.Values.global "tolerations" }}
+      tolerations: {{- toYaml .Values.global.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
+      {{- else if hasKey $.Values.global "nodeSelector" }}
+      nodeSelector: {{- toYaml .Values.global.nodeSelector | nindent 8 }}
+      {{- end }}
 {{- end}}

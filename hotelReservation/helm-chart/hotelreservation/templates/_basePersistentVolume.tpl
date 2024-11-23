@@ -4,20 +4,17 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Values.name }}-pv
+  name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-pv
   labels:
-    app: {{ .Values.name }}
-    type: mongodb-storage
+    app-name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
 spec:
-  capacity:
-    storage: {{ .Values.global.mongodb.persistentVolume.size }}
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: ""  # Important for static binding
+  capacity:
+    storage: {{ .Values.global.mongodb.persistentVolume.size }}
   hostPath:
-    path: {{ .Values.global.mongodb.persistentVolume.hostPath.path }}/{{ .Values.name }}-data
+    path: {{ .Values.global.mongodb.persistentVolume.hostPath.path }}/{{ .Values.name }}-pv
     type: DirectoryOrCreate
 {{- end }}
 {{- end }}
