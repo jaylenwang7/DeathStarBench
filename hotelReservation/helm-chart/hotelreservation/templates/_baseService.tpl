@@ -13,6 +13,9 @@ spec:
     protocol: {{ .protocol }}
     {{- end }}
     targetPort: {{ .targetPort }}
+    {{- if .nodePort }}
+    nodePort: {{ .nodePort }}
+    {{- end }}
   {{- end }}
   selector:
     {{- include "hotel-reservation.selectorLabels" . | nindent 4 }}
