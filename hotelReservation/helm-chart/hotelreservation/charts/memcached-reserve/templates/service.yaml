@@ -1,1 +1,1 @@
-{{ include "hotelreservation.templates.baseServiceMemcached" . }}
+{{ include "hotelreservation.templates.baseService" . }}

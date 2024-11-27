@@ -24,10 +24,9 @@ global:
   tolerations: []
   nodeSelector: {}
   memcached:
-    HACount: 1
     environments:
-      MEMCACHED_CACHE_SIZE: "128"
-      MEMCACHED_THREADS: "2"
+      cacheSize: "128"
+      threads: "2"
   mongodb:
     persistentVolume:               # use hostPath or pvprovisioner
       enabled: false
