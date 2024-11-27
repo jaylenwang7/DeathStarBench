@@ -7,7 +7,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.name }}-{{ $rangeItem }}-{{ include "hotel-reservation.fullname" . }}
+  name: {{ .Values.name }}-{{ $rangeItem }}
 spec:
   type: {{ .Values.serviceType | default .Values.global.serviceType }}
   ports:
@@ -21,7 +21,7 @@ spec:
   {{- end }}
   selector:
     {{- include "hotel-reservation.selectorLabels" . | nindent 4 }}
-    service: {{ .Values.name }}-{{ $rangeItem }}-{{ include "hotel-reservation.fullname" . }}
+    service: {{ .Values.name }}-{{ $rangeItem }}
 {{- end }}
 {{- end }}
 {{- end }}
