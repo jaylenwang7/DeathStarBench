@@ -17,7 +17,7 @@ global:
       #  - TLS_XXX: Enabled, using the specified Cipher suite, see tls/options.go#L22
       TLS: 0
       LOG_LEVEL: "INFO"
-      JAEGER_SAMPLE_RATIO: "0.01"
+      JAEGER_SAMPLE_RATIO: "1.0"
       MEMC_TIMEOUT: "2"
       GC: "100"
   affinity: {}
