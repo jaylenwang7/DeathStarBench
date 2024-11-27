@@ -4,9 +4,9 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-pv
+  name: {{ .Values.name }}-pv
   labels:
-    app-name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
+    app-name: {{ .Values.name }}
 spec:
   volumeMode: Filesystem
   accessModes:
