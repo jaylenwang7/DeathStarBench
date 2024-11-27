@@ -4,7 +4,7 @@ kind: ConfigMap
 metadata:
   name: {{ .Values.name }}
   labels:
-    hotelreservation/service: {{ .Values.name }}-
+    hotelreservation/service: {{ .Values.name }}
 data:
  {{- range $configMap := .Values.configMaps }}
   {{- $filePath := printf "configs/%s" $configMap.value }}

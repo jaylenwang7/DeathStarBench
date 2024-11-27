@@ -62,7 +62,7 @@ Usage:
   {{- $count := add (index . 1) 1 | int }}
   {{- $name := index . 2 }}
   {{- $port := index . 3 | int }}
-  {{- $fullname := include "hotel-reservation.fullname" $mapToCheck }}
+  {{- $fullname := $mapToCheck }}
   {{- $appendix := printf "%s.%s.svc.%s:%d" $fullname $mapToCheck.Release.Namespace $mapToCheck.Values.global.serviceDnsDomain $port }}
   {{- $addrlist := list }}
   {{- range $key, $item := untilStep 1 $count 1 }}

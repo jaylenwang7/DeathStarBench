@@ -69,7 +69,7 @@ spec:
         {{- if $.Values.configMaps }}        
         volumeMounts: 
         {{- range $configMap := $.Values.configMaps }}
-        - name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-config
+        - name: {{ $.Values.name }}-config
           mountPath: {{ $configMap.mountPath }}
           subPath: {{ $configMap.name }}
         {{- end }}
@@ -77,9 +77,9 @@ spec:
       {{- end -}}
       {{- if $.Values.configMaps }}
       volumes:
-      - name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-config
+      - name: {{ $.Values.name }}-config
         configMap:
-          name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}
+          name: {{ $.Values.name }}
       {{- end }}
       {{- if hasKey .Values "topologySpreadConstraints" }}
       topologySpreadConstraints:

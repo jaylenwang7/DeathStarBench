@@ -58,7 +58,7 @@ spec:
         {{- end }}
         volumeMounts:
         - mountPath: /data/db
-          name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-path
+          name: {{ $.Values.name }}-path
       {{- end }}
       volumes:
       - name: {{ .Values.name }}-path
