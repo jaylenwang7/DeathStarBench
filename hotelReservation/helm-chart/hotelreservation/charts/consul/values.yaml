@@ -23,3 +23,14 @@ container:
   - containerPort: 8500
   - containerPort: 53
     protocol: UDP
+
+nodeSelector:
+  kubernetes.io/hostname: node0
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule

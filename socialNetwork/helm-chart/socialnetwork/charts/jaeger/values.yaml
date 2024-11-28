@@ -19,7 +19,6 @@ ports:
   - port: 9411
     targetPort: 9411
 
-
 container:
   env: 
   - name: COLLECTOR_ZIPKIN_HTTP_PORT
