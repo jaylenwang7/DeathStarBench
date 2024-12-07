@@ -305,46 +305,6 @@ class SocialMediaUser(FastHttpUser):
             logging.warning('compose_post resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
-
-    @task(0)
-    @tag('read_home_timeline')
-    def read_home_timeline(self):
-        start = random.randint(0, 100)
-        stop  = start + 10
-
-        url = '/wrk2-api/home-timeline/read'
-        args = {}
-        args['user_id'] = str(random.randint(1, 962))
-        args['start'] = str(start)
-        args['stop'] = str(stop)
-
-        r = self.client.get(url, params=args, name='read_home_line',
-            context={'type': 'read_home_timeline', 'start': start, 'user_id': args['user_id']})
-
-        if r.status_code > 202:
-            logging.warning('read_home_timeline resp.status = %d, text=%s' %(r.status_code,
-                r.text))
-
-    @task(0)
-    @tag('read_user_timeline')
-    def read_user_timeline(self):
-        start = random.randint(0, 100)
-        stop  = start + 10
-
-        url = '/wrk2-api/user-timeline/read'
-        args = {}
-        args['user_id'] = str(random.randint(1, 962))
-        args['start'] = str(start)
-        args['stop'] = str(stop)
-
-        r = self.client.get(url, params=args, name='read_user_timeline',
-            context={'type': 'read_user_timeline', 'start': start, 'user_id': args['user_id']})
-
-        if r.status_code > 202:
-            logging.warning('read_user_timeline resp.status = %d, text=%s' %(r.status_code,
-                r.text))
-
-
 # Read RPS values from the 'rps.txt' file
 RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 
