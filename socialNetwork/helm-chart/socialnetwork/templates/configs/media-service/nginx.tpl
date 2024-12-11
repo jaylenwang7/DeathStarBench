@@ -52,6 +52,12 @@ http {
     listen       8080 reuseport;
     server_name  localhost;
 
+    location /nginx-health {
+      access_log off;
+      add_header 'Content-Type' 'text/plain';
+      return 200 "healthy\n";
+    }
+
     # Checklist: Turn of the access_log and error_log if you
     # don't need them.
     access_log  off;
