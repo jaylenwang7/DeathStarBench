@@ -49,7 +49,7 @@ http {
   server {
 
     # Checklist: Set up the port that nginx listens to.
-    listen       8080 reuseport;
+    listen       8081 reuseport;
     server_name  localhost;
 
     location /nginx-health {
