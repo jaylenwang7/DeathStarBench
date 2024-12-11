@@ -25,6 +25,14 @@ spec:
         {{- range $cport := .ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }} 
+        readinessProbe:
+          httpGet:
+            path: {{ .probePath | default "/nginx-health" }}
+            port: {{ .probePort | default (index .ports 0).containerPort }}
+          initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
+          periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
+          failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
+          timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
         {{- if .env }}
         env:
         {{- range $e := .env}}

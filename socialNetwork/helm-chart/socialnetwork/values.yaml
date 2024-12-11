@@ -40,6 +40,11 @@ global:
     samplerParam: 1
     disabled: false
     logSpans: false
+  probe:
+    initialDelaySeconds: 2
+    periodSeconds: 2
+    failureThreshold: 10
+    timeoutSeconds: 2
 
 mongodb-sharded:
   fullnameOverride: mongodb-sharded

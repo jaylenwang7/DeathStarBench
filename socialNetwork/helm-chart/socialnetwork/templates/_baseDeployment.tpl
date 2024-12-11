@@ -26,6 +26,13 @@ spec:
         - containerPort: {{ $cport.containerPort -}}
         {{ end }} 
         {{- if .env }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ .probePort | default (index .ports 0).containerPort }}
+          initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
+          periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
+          failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
+          timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}
