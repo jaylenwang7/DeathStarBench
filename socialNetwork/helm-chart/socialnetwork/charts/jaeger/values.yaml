@@ -26,6 +26,7 @@ container:
   image: jaegertracing/all-in-one
   imageVersion: 1.60
   name: jaeger
+  disableReadinessProbe: true
   ports: 
   - containerPort: 5775
     protocol: UDP
