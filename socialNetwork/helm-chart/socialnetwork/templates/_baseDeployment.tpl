@@ -35,6 +35,18 @@ spec:
           failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
         {{- end }}
+        {{- if or .lifecycle $.Values.global.lifecycle }}
+        lifecycle:
+          {{- if and 
+              (or .preStop $.Values.global.lifecycle.preStop) 
+              (not (hasKey . "preStopDisabled")) 
+              (ne (.preStop.enabled | default $.Values.global.lifecycle.preStop.enabled) false) }}
+          preStop:
+            exec:
+              command: {{ .preStop.exec.command | default $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
+          {{- end }}
+        {{- end }}
+        terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default $.Values.global.terminationGracePeriodSeconds | default 30 }}
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}

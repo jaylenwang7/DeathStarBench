@@ -25,6 +25,7 @@ spec:
         {{- range $cport := .ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }} 
+        {{- if not .disableReadinessProbe }}
         readinessProbe:
           httpGet:
             path: {{ .probePath | default "/nginx-health" }}
@@ -33,6 +34,19 @@ spec:
           periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+        {{- end }}
+        {{- if or .lifecycle $.Values.global.lifecycle }}
+        lifecycle:
+          {{- if and 
+              (or .preStop $.Values.global.lifecycle.preStop) 
+              (not (hasKey . "preStopDisabled")) 
+              (ne (.preStop.enabled | default $.Values.global.lifecycle.preStop.enabled) false) }}
+          preStop:
+            exec:
+              command: {{ .preStop.exec.command | default $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
+          {{- end }}
+        {{- end }}
+        terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default $.Values.global.terminationGracePeriodSeconds | default 30 }}
         {{- if .env }}
         env:
         {{- range $e := .env}}

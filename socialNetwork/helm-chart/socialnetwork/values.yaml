@@ -45,6 +45,11 @@ global:
     periodSeconds: 2
     failureThreshold: 10
     timeoutSeconds: 2
+  lifecycle:
+    preStop:
+      enabled: true
+      exec:
+        command: ["sh", "-c", "sleep 10"]
 
 mongodb-sharded:
   fullnameOverride: mongodb-sharded

@@ -26,6 +26,10 @@ container:
       mountPath: /gen-lua
     - name: keys
       mountPath: /keys
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "nginx -s quit && sleep 5"]
 
 
 initContainer:

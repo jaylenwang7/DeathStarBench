@@ -16,6 +16,10 @@ container:
   volumeMounts:
     - name: lua-scripts
       mountPath: /usr/local/openresty/nginx/lua-scripts
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "nginx -s quit && sleep 5"]
 
 initContainer:
   image: alpine/git
