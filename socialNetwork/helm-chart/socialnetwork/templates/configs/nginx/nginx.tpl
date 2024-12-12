@@ -75,6 +75,7 @@ http {
     config:set("secret", "secret")
     config:set("cookie_ttl", 3600 * 24)
     config:set("ssl", false)
+    config:set("initialized", true)
   }
 
   server {
