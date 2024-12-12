@@ -76,22 +76,74 @@ http {
     config:set("cookie_ttl", 3600 * 24)
     config:set("ssl", false)
     config:set("initialized", true)
+
+    local healthcheck = ngx.shared.healthcheck
+    healthcheck:set("status", "starting")
   }
 
   server {
-
-    # Checklist: Set up the port that nginx listens to.
     listen       8080 reuseport;
     server_name  localhost;
 
     location /nginx-health {
       access_log off;
-      add_header 'Content-Type' 'text/plain';
-      return 200 "healthy\n";
+      default_type application/json;
+      content_by_lua '
+        local cjson = require "cjson"
+        local healthcheck = ngx.shared.healthcheck
+        local config = ngx.shared.config
+        
+        if not config:get("initialized") then
+          ngx.status = 503
+          ngx.say(cjson.encode({
+            status = "error",
+            message = "Core initialization incomplete",
+            ready = false
+          }))
+          return
+        end
+        
+        local function check_module(module_name)
+          local success, module = pcall(require, module_name)
+          return success
+        end
+        
+        local required_modules = {
+          "social_network_UserTimelineService",
+          "social_network_SocialGraphService",
+          "social_network_ComposePostService",
+          "social_network_UserService"
+        }
+        
+        local missing_modules = {}
+        for _, module_name in ipairs(required_modules) do
+          if not check_module(module_name) then
+            table.insert(missing_modules, module_name)
+          end
+        end
+        
+        if #missing_modules > 0 then
+          ngx.status = 503
+          ngx.say(cjson.encode({
+            status = "error",
+            message = "Missing required modules",
+            missing_modules = missing_modules,
+            ready = false
+          }))
+          return
+        end
+        
+        healthcheck:set("status", "ready")
+        ngx.say(cjson.encode({
+          status = "healthy",
+          initialized = true,
+          modules_loaded = true,
+          ready = true,
+          timestamp = ngx.time()
+        }))
+      ';
     }
 
-    # Checklist: Turn of the access_log and error_log if you
-    # don't need them.
     access_log  off;
     # error_log off;
 
