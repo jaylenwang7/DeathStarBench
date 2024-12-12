@@ -28,6 +28,7 @@ container:
       mountPath: /keys
   lifecycle:
     preStop:
+      enabled: true
       exec:
         command: ["sh", "-c", "nginx -s quit && sleep 5"]
 
