@@ -37,13 +37,16 @@ spec:
         {{- end }}
         {{- if or .lifecycle $.Values.global.lifecycle }}
         lifecycle:
-          {{- if and 
-              (or .preStop $.Values.global.lifecycle.preStop) 
-              (not (hasKey . "preStopDisabled")) 
-              (ne (.preStop.enabled | default $.Values.global.lifecycle.preStop.enabled) false) }}
+          {{- if .lifecycle }}
+          {{- if and .lifecycle.preStop .lifecycle.preStop.enabled }}
           preStop:
             exec:
-              command: {{ .preStop.exec.command | default $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
+              command: {{ .lifecycle.preStop.exec.command | toYaml | nindent 14 }}
+          {{- end }}
+          {{- else if and $.Values.global.lifecycle $.Values.global.lifecycle.preStop }}
+          preStop:
+            exec:
+              command: {{ $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
           {{- end }}
         {{- end }}
         terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default $.Values.global.terminationGracePeriodSeconds | default 30 }}
