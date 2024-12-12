@@ -16,6 +16,7 @@ spec:
         service: {{ .Values.name }}
         app: {{ .Values.name }}
     spec: 
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default $.Values.global.terminationGracePeriodSeconds | default 30 }}
       containers:
       {{- with .Values.container }}
       - name: "{{ .name }}"
@@ -49,7 +50,6 @@ spec:
               command: {{ $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
           {{- end }}
         {{- end }}
-        terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default $.Values.global.terminationGracePeriodSeconds | default 30 }}
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}
