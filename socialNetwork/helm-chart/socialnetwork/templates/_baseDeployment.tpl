@@ -40,7 +40,7 @@ spec:
           {{- if and 
               (or .preStop $.Values.global.lifecycle.preStop) 
               (not (hasKey . "preStopDisabled")) 
-              (ne (hasKey .preStop "enabled" | ternary .preStop.enabled true) false) }}
+              (ne (and .preStop (hasKey .preStop "enabled") | ternary .preStop.enabled true) false) }}
           preStop:
             exec:
               command: {{ .preStop.exec.command | default $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
