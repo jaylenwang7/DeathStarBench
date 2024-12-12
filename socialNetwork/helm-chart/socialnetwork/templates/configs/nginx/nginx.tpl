@@ -75,6 +75,7 @@ http {
     config:set("secret", "secret")
     config:set("cookie_ttl", 3600 * 24)
     config:set("ssl", false)
+    config:set("initialized", true)
   }
 
   server {
@@ -84,27 +85,27 @@ http {
     server_name  localhost;
 
     location /nginx-health {
-      access_log off;
-      content_by_lua_block {
-          -- Verify Lua modules are loaded
-          local status = ngx.shared.config:get("initialized")
-          if not status then
-              ngx.status = 503
-              ngx.say("Lua runtime not fully initialized")
-              return
-          }
+        access_log off;
+        content_by_lua_block {
+            -- Verify Lua modules are loaded
+            local status = ngx.shared.config:get("initialized")
+            if not status then
+                ngx.status = 503
+                ngx.say("Lua runtime not fully initialized")
+                return
+            }
 
-          -- Basic connection test to dependent services
-          local socket = ngx.socket.tcp()
-          local ok, err = socket:connect("127.0.0.1", 8080)
-          if not ok then
-              ngx.status = 503
-              ngx.say("Service connections not ready")
-              return
-          end
+            -- Basic connection test to dependent services
+            local socket = ngx.socket.tcp()
+            local ok, err = socket:connect("127.0.0.1", 8080)
+            if not ok then
+                ngx.status = 503
+                ngx.say("Service connections not ready")
+                return
+            end
 
-          ngx.say("healthy")
-      }
+            ngx.say("healthy")
+        }
     }
 
     # Checklist: Turn of the access_log and error_log if you
