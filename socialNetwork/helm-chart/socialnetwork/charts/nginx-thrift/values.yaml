@@ -26,12 +26,12 @@ container:
       mountPath: /gen-lua
     - name: keys
       mountPath: /keys
-  terminationGracePeriodSeconds: 600
+  terminationGracePeriodSeconds: 30
   lifecycle:
     preStop:
       enabled: true
       exec:
-        command: ["/bin/sh", "-c", "sleep 5; /usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/nginx.conf -s quit; while pgrep -x nginx; do sleep 1; done"]
+        command: ["/bin/sh", "-c", "echo 'shutting_down' > /tmp/nginx_status; sleep 5; /usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/nginx.conf -s quit; while pgrep -x nginx; do sleep 1; done"]
 
 
 initContainer:
