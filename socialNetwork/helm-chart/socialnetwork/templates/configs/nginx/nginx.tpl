@@ -53,6 +53,7 @@ http {
   lua_package_path '/usr/local/openresty/nginx/lua-scripts/?.lua;/usr/local/openresty/luajit/share/lua/5.1/?.lua;;';
 
   lua_shared_dict config 32k;
+  lua_shared_dict healthcheck 32k;
 
   init_by_lua_block {
     local bridge_tracer = require "opentracing_bridge_tracer"
