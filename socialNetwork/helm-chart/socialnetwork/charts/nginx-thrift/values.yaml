@@ -32,7 +32,17 @@ container:
     preStop:
       enabled: true
       exec:
-        command: ["/bin/sh", "-c", "echo 'shutting_down' > /tmp/nginx_status; sleep 45; /usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/nginx.conf -s quit; while pgrep -x nginx; do sleep 1; done"]
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          echo 'shutting_down' > /tmp/nginx_status
+          # Wait for k8s to redirect traffic (sleep shorter since we're actively rejecting)
+          sleep 15
+          # Then quit
+          nginx -s quit
+          # Wait for nginx to exit
+          while pgrep -x nginx; do sleep 1; done
 
 
 initContainer:

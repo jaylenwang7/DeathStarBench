@@ -38,9 +38,9 @@ http {
   tcp_nopush      on;
   tcp_nodelay     on;
 
-  # Checklist: Make sure the keepalive_timeout is greateer than
+  # Checklist: Make sure the keepalive_timeout is greater than
   # the duration of your experiment and keepalive_requests
-  # is greateer than the total number of requests sent from
+  # is greater than the total number of requests sent from
   # the workload generator
   keepalive_timeout  120s;
   keepalive_requests 100000;
@@ -93,6 +93,21 @@ http {
         local cjson = require "cjson"
         local healthcheck = ngx.shared.healthcheck
         local config = ngx.shared.config
+
+        -- Check shutdown status
+        local f = io.open("/tmp/nginx_status", "r")
+        if f then
+          local status = f:read("*all")
+          f:close()
+          if status:match("shutting_down") then
+            ngx.status = 503
+            ngx.say(cjson.encode({
+              status = "shutting_down",
+              ready = false
+            }))
+            return
+          end
+        end
         
         if not config:get("initialized") then
           ngx.status = 503
