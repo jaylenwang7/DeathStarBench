@@ -6,6 +6,8 @@ ports:
     targetPort: 8080
     nodePort: 30080
 
+terminationGracePeriodSeconds: 600
+
 container:
   image: yg397/openresty-thrift
   imageVersion: xenial
@@ -26,7 +28,6 @@ container:
       mountPath: /gen-lua
     - name: keys
       mountPath: /keys
-  terminationGracePeriodSeconds: 600
   lifecycle:
     preStop:
       enabled: true
