@@ -34,6 +34,21 @@ http {
                   '"$http_user_agent" "$http_x_forwarded_for"';
   # access_log  logs/access.log  main;
 
+  log_format detailed escape=json '{'
+    '"time_local":"$time_local",'
+    '"remote_addr":"$remote_addr",'
+    '"request":"$request",'
+    '"status": "$status",'
+    '"request_time":"$request_time",'
+    '"upstream_connect_time":"$upstream_connect_time",'
+    '"upstream_header_time":"$upstream_header_time",'
+    '"upstream_response_time":"$upstream_response_time",'
+    '"connection":"$connection",'
+    '"connection_requests":"$connection_requests"'
+  '}';
+
+  access_log /usr/local/openresty/nginx/logs/access.log detailed buffer=32k flush=1s;
+
   sendfile        on;
   tcp_nopush      on;
   tcp_nodelay     on;
@@ -160,7 +175,7 @@ http {
       ';
     }
 
-    access_log  off;
+    # access_log  off;
     # error_log off;
 
     lua_need_request_body on;
