@@ -26,6 +26,7 @@ container:
       mountPath: /gen-lua
     - name: keys
       mountPath: /keys
+  terminationGracePeriodSeconds: 600
   lifecycle:
     preStop:
       enabled: true
