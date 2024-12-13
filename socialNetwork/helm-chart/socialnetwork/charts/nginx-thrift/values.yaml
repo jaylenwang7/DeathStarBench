@@ -32,7 +32,7 @@ container:
     preStop:
       enabled: true
       exec:
-        command: ["/bin/sh", "-c", "echo 'shutting_down' > /tmp/nginx_status; sleep 20; /usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/nginx.conf -s quit; while pgrep -x nginx; do sleep 1; done"]
+        command: ["/bin/sh", "-c", "echo 'shutting_down' > /tmp/nginx_status; sleep 45; /usr/local/openresty/nginx/sbin/nginx -c /etc/nginx/nginx.conf -s quit; while pgrep -x nginx; do sleep 1; done"]
 
 
 initContainer:
