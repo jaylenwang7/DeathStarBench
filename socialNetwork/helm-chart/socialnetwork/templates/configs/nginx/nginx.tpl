@@ -29,7 +29,7 @@ http {
   proxy_connect_timeout 5s;
   proxy_send_timeout 10s;
   reset_timedout_connection on;
-  lingering_close off
+  lingering_close off;
   
   log_format main '$remote_addr - $remote_user [$time_local] "$request"'
                   '$status $body_bytes_sent "$http_referer" '
