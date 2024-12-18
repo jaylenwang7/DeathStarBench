@@ -108,32 +108,55 @@ http {
         local cjson = require "cjson"
         local healthcheck = ngx.shared.healthcheck
         local config = ngx.shared.config
-
-        -- Check shutdown status
+        local timing = ngx.shared.shutdown_timing
+        
+        -- Check shutdown status first
         local f = io.open("/tmp/nginx_status", "r")
         if f then
           local status = f:read("*all")
           f:close()
           if status:match("shutting_down") then
+            -- Start refusing new connections
+            ngx.header["Connection"] = "close"
+            -- Return 503 with retry-after header
+            ngx.header["Retry-After"] = "5"
             ngx.status = 503
             ngx.say(cjson.encode({
-              status = "shutting_down",
-              ready = false
+                status = "shutting_down",
+                ready = false,
+                message = "Pod is shutting down",
+                shutdown = {
+                    in_progress = ngx.worker.exiting(),
+                    duration = shutdown_start and (ngx.now() - shutdown_start) or 0,
+                    active_connections = ngx.var.connections_active
+                }
             }))
             return
           end
         end
+
+        -- Record shutdown timing if we get the signal
+        if ngx.worker.exiting() then
+            timing:set("shutdown_start", ngx.now())
+        end
         
+        -- Check initialization
         if not config:get("initialized") then
           ngx.status = 503
           ngx.say(cjson.encode({
             status = "error",
             message = "Core initialization incomplete",
-            ready = false
+            ready = false,
+            shutdown = {
+                in_progress = ngx.worker.exiting(),
+                duration = shutdown_start and (ngx.now() - shutdown_start) or 0,
+                active_connections = ngx.var.connections_active
+            }
           }))
           return
         end
         
+        -- Check modules
         local function check_module(module_name)
           local success, module = pcall(require, module_name)
           return success
@@ -159,18 +182,30 @@ http {
             status = "error",
             message = "Missing required modules",
             missing_modules = missing_modules,
-            ready = false
+            ready = false,
+            shutdown = {
+                in_progress = ngx.worker.exiting(),
+                duration = shutdown_start and (ngx.now() - shutdown_start) or 0,
+                active_connections = ngx.var.connections_active
+            }
           }))
           return
         end
         
+        -- Everything is healthy
         healthcheck:set("status", "ready")
+        local shutdown_start = timing:get("shutdown_start")
         ngx.say(cjson.encode({
           status = "healthy",
           initialized = true,
           modules_loaded = true,
           ready = true,
-          timestamp = ngx.time()
+          timestamp = ngx.time(),
+          shutdown = {
+              in_progress = ngx.worker.exiting(),
+              duration = shutdown_start and (ngx.now() - shutdown_start) or 0,
+              active_connections = ngx.var.connections_active
+          }
         }))
       ';
     }
