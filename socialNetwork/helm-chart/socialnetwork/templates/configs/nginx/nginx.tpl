@@ -69,6 +69,7 @@ http {
 
   lua_shared_dict config 32k;
   lua_shared_dict healthcheck 32k;
+  lua_shared_dict shutdown_timing 1m;
 
   init_by_lua_block {
     local bridge_tracer = require "opentracing_bridge_tracer"
