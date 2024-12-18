@@ -12,7 +12,7 @@ worker_processes  auto;
 # is greater than the total connections between the client and Nginx. 
 events {
   use epoll;
-  worker_connections  1024;
+  worker_connections  4096;
 }
 
 env fqdn_suffix;
@@ -74,8 +74,8 @@ http {
   # the duration of your experiment and keepalive_requests
   # is greater than the total number of requests sent from
   # the workload generator
-  keepalive_timeout  120s;
-  keepalive_requests 100000;
+  keepalive_timeout  240s;
+  keepalive_requests 1000000;
 
   # Docker default hostname resolver. Set valid timeout to prevent unlimited
   # ttl for resolver caching.
