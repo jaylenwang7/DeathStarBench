@@ -38,7 +38,7 @@ container:
         - |
           echo 'shutting_down' > /tmp/nginx_status
           # Wait for k8s to redirect traffic (sleep shorter since we're actively rejecting)
-          sleep 15
+          sleep 5
           # Then quit
           nginx -s quit
           # Wait for nginx to exit
