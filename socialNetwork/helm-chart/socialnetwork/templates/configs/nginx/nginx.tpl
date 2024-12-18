@@ -29,6 +29,7 @@ http {
   proxy_connect_timeout 5s;
   proxy_send_timeout 10s;
   reset_timedout_connection on;
+  lingering_close off
   
   log_format main '$remote_addr - $remote_user [$time_local] "$request"'
                   '$status $body_bytes_sent "$http_referer" '
@@ -47,6 +48,21 @@ http {
     '"connection":"$connection",'
     '"connection_requests":"$connection_requests"'
   '}';
+
+  access_by_lua_block {
+      local f = io.open("/tmp/nginx_status", "r")
+      if f then
+          local status = f:read("*all")
+          f:close()
+          if status:match("shutting_down") then
+              ngx.header["Connection"] = "close"
+              ngx.status = 503
+              ngx.header["Retry-After"] = "5"
+              ngx.say('{"error": "Server is shutting down"}')
+              return ngx.exit(503)
+          end
+      end
+  }
 
   access_log /usr/local/openresty/nginx/logs/access.log detailed buffer=32k flush=1s;
 
