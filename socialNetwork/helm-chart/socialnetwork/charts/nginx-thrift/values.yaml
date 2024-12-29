@@ -37,6 +37,7 @@ container:
         - -c
         - |
           echo 'shutting_down' > /tmp/nginx_status
+          curl -s http://localhost/nginx-health || true
           # Wait for k8s to redirect traffic (sleep shorter since we're actively rejecting)
           sleep 1
           # Then quit
