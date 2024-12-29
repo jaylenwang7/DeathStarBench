@@ -42,7 +42,7 @@ global:
     logSpans: false
   probe:
     initialDelaySeconds: 2
-    periodSeconds: 0.5
+    periodSeconds: 1
     failureThreshold: 10
     timeoutSeconds: 2
   lifecycle:
