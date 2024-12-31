@@ -210,7 +210,6 @@ void HomeTimelineHandler::WriteHomeTimeline(
   redis_span->Finish();
 }
 
-
 void HomeTimelineHandler::ReadHomeTimeline(
     std::vector<Post> &_return, int64_t req_id, int64_t user_id, int start_idx,
     int stop_idx, const std::map<std::string, std::string> &carrier) {
