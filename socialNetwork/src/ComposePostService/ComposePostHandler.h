@@ -47,6 +47,7 @@ class ComposePostHandler : public ComposePostServiceIf {
                    const std::map<std::string, std::string> &carrier) override;
 
  private:
+  std::atomic<bool>* _is_draining;
   ClientPool<ThriftClient<PostStorageServiceClient>> *_post_storage_client_pool;
   ClientPool<ThriftClient<UserTimelineServiceClient>>
       *_user_timeline_client_pool;

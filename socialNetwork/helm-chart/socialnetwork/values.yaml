@@ -4,7 +4,10 @@ global:
   restartPolicy: Always
   serviceType: ClusterIP
   dockerRegistry: docker.io
+  repository: deathstarbench
+  imageName: social-network-microservices
   defaultImageVersion: latest
+
   redis:
     cluster:
       enabled: false
@@ -14,12 +17,14 @@ global:
       primary: redis-primary
       replica: redis-replica
       enabled: false
+    
   memcached:
     cluster:
       enabled: false
       port: &memcached-cluster-port 5000
     standalone:
       enabled: true
+    
   mongodb:
     standalone:
       enabled: true
@@ -30,8 +35,10 @@ global:
         user: "root"
         password: &mongodb-sharded-password "password"
         port: 27017
+  
   nginx:
     resolverName: kube-dns.kube-system.svc.cluster.local
+  
   jaeger:
     localAgentHostPort: jaeger:6831
     queueSize: 1000000
@@ -40,6 +47,7 @@ global:
     samplerParam: 1
     disabled: false
     logSpans: false
+  
   probe:
     initialDelaySeconds: 2
     periodSeconds: 1

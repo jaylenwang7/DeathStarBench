@@ -15,6 +15,7 @@
 #include "../logger.h"
 #include "../tracing.h"
 #include "../utils.h"
+#include "../utils_health.h"
 
 using namespace social_network;
 

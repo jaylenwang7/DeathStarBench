@@ -8,11 +8,14 @@ container:
   args: 
   - --config
   - /social-network-microservices/config/mongod.conf
-  image: library/mongo
-  imageVersion: 4.4.6
+  image:
+    registry: docker.io
+    repository: library
+    name: mongo
+    tag: 4.4.6
   name: user-timeline-mongodb
   ports: 
-  - containerPort: 27017
+    - containerPort: 27017
 
 configMaps:
   - name: mongod.conf

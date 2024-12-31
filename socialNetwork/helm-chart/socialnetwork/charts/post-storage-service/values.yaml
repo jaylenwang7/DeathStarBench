@@ -6,10 +6,13 @@ ports:
 
 container:
   command: PostStorageService
-  image: deathstarbench/social-network-microservices
-  name: post-storage-service
+  image:
+    registry: ~
+    repository: ~
+    name: ~
+    tag: ~
   ports: 
-  - containerPort: 9090
+    - containerPort: 9090
 
 configMaps:
   - name: jaeger-config.yml

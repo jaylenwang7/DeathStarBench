@@ -7,11 +7,14 @@ ports:
 container:
   args: 
   - /social-network-microservices/config/redis.conf
-  image: library/redis
-  imageVersion: 6.2.4
+  image:
+    registry: docker.io
+    repository: library
+    name: redis
+    tag: 6.2.4
   name: social-graph-redis
   ports: 
-  - containerPort: 6379
+    - containerPort: 6379
 
 configMaps:
   - name: redis.conf

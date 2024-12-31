@@ -6,6 +6,7 @@
 
 #include "../utils.h"
 #include "../utils_thrift.h"
+#include "../utils_health.h"
 #include "ComposePostHandler.h"
 
 using apache::thrift::protocol::TBinaryProtocolFactory;
@@ -14,10 +15,21 @@ using apache::thrift::transport::TFramedTransportFactory;
 using apache::thrift::transport::TServerSocket;
 using namespace social_network;
 
-void sigintHandler(int sig) { exit(EXIT_SUCCESS); }
+// Global health endpoint for cleanup
+std::unique_ptr<HealthEndpoint> health_endpoint;
+
+void sigintHandler(int sig) {
+    if (health_endpoint) {
+        LOG(info) << "Received shutdown signal, starting graceful shutdown";
+        HealthChecker::getInstance().setStatus(ServiceStatus::DRAINING);
+        health_endpoint->shutdown();
+    }
+    exit(EXIT_SUCCESS);
+}
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
   SetUpTracer("config/jaeger-config.yml", "compose-post-service");
 
@@ -26,7 +38,9 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  int port = config_json["compose-post-service"]["port"];
+  // Get ports
+  int thrift_port = config_json["compose-post-service"]["port"];
+  int http_port = config_json["compose-post-service"]["http_port"];
 
   int post_storage_port = config_json["post-storage-service"]["port"];
   std::string post_storage_addr = config_json["post-storage-service"]["addr"];
@@ -97,7 +111,15 @@ int main(int argc, char *argv[]) {
       "unique-id-service-client", unique_id_addr, unique_id_port, 0,
       unique_id_conns, unique_id_timeout, unique_id_keepalive, config_json);
 
-  std::shared_ptr<TServerSocket> server_socket = get_server_socket(config_json, "0.0.0.0", port);
+	// Setup health endpoint
+	health_endpoint = std::make_unique<HealthEndpoint>(http_port);
+	std::thread health_thread([&health_endpoint]() {
+		health_endpoint->start();
+	});
+	health_thread.detach();
+
+  // Setup Thrift server
+  std::shared_ptr<TServerSocket> server_socket = get_server_socket(config_json, "0.0.0.0", thrift_port);
   TThreadedServer server(
       std::make_shared<ComposePostServiceProcessor>(
           std::make_shared<ComposePostHandler>(
@@ -107,6 +129,8 @@ int main(int argc, char *argv[]) {
       server_socket,
       std::make_shared<TFramedTransportFactory>(),
       std::make_shared<TBinaryProtocolFactory>());
+
   LOG(info) << "Starting the compose-post-service server ...";
   server.serve();
+  return 0;
 }

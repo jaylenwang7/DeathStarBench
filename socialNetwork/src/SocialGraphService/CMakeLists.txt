@@ -20,6 +20,7 @@ target_link_libraries(
     ${THRIFT_LIB}
     ${CMAKE_THREAD_LIBS_INIT}
     ${Boost_LIBRARIES}
+    ${PISTACHE_LIBRARIES}
     nlohmann_json::nlohmann_json
     Boost::log
     Boost::log_setup
