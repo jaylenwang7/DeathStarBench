@@ -11,6 +11,7 @@ container:
     repository: ~
     name: ~
     tag: ~
+  name: post-storage-service
   ports: 
     - containerPort: 9090
 
