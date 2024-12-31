@@ -12,7 +12,7 @@ container:
   image:
     registry: docker.io
     repository: yg397
-    name: media-frontend
+    name: openresty-thrift
     tag: xenial
   name: nginx-thrift
   ports: 
