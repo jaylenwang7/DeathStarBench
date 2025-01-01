@@ -4,7 +4,7 @@
 #include <mongoc.h>
 #include <bson/bson.h>
 
-#define SERVER_SELECTION_TIMEOUT_MS 50
+#define SERVER_SELECTION_TIMEOUT_MS 100
 
 namespace social_network {
 
@@ -38,6 +38,8 @@ mongoc_client_pool_t* init_mongodb_client_pool(
       mongoc_uri_set_option_as_bool(mongodb_uri, MONGOC_URI_TLS, true);
       mongoc_uri_set_option_as_utf8(mongodb_uri, MONGOC_URI_TLSCAFILE, ca_file.c_str());
       mongoc_uri_set_option_as_bool(mongodb_uri, MONGOC_URI_TLSALLOWINVALIDHOSTNAMES, true);
+      mongoc_uri_set_option_as_int32(mongodb_uri, MONGOC_URI_CONNECTTIMEOUTMS, 100);
+      mongoc_uri_set_option_as_int32(mongodb_uri, MONGOC_URI_SOCKETTIMEOUTMS, 150);
     }
 
     mongoc_client_pool_t *client_pool= mongoc_client_pool_new(mongodb_uri);
