@@ -20,8 +20,8 @@ using namespace social_network;
 
 static memcached_pool_st* memcached_client_pool;
 static mongoc_client_pool_t* mongodb_client_pool;
-static ServiceHealth* health_server;
-static DbOperationTracker mongo_tracker;
+ServiceHealth* health_server;
+DbOperationTracker mongo_tracker;
 
 void sigintHandler(int sig) {
   if (memcached_client_pool != nullptr) {
