@@ -18,10 +18,11 @@ using apache::thrift::transport::TFramedTransportFactory;
 using apache::thrift::transport::TServerSocket;
 using namespace social_network;
 
-static memcached_pool_st* memcached_client_pool;
-static mongoc_client_pool_t* mongodb_client_pool;
-ServiceHealth* health_server;
-DbOperationTracker mongo_tracker;
+ServiceHealth* social_network::health_server = nullptr;
+DbOperationTracker social_network::mongo_tracker;
+
+static memcached_pool_st* memcached_client_pool = nullptr;
+static mongoc_client_pool_t* mongodb_client_pool = nullptr;
 
 void sigintHandler(int sig) {
   if (memcached_client_pool != nullptr) {
@@ -36,6 +37,7 @@ void sigintHandler(int sig) {
   }
   exit(EXIT_SUCCESS);
 }
+
 int main(int argc, char* argv[]) {
   signal(SIGINT, sigintHandler);
   init_logger();
