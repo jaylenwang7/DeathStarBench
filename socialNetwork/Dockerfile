@@ -10,9 +10,12 @@ RUN cd /tmp/redis-plus-plus\
 && make -j$(nproc) \
 && make install
 
-# Install Meson (required for Pistache)
-RUN apt-get update && apt-get install -y python3-pip && \
-    pip3 install meson ninja
+# Install build dependencies for Pistache
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    ninja-build \
+    && pip3 install --upgrade pip \
+    && pip3 install meson
 
 # Install Pistache from source
 RUN cd /tmp \
