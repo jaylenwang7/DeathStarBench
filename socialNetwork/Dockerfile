@@ -10,6 +10,18 @@ RUN cd /tmp/redis-plus-plus\
 && make -j$(nproc) \
 && make install
 
+# Install Pistache
+RUN cd /tmp \
+    && git clone https://github.com/pistacheio/pistache.git \
+    && cd pistache \
+    && git checkout v0.0.2 \
+    && mkdir build \
+    && cd build \
+    && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DPISTACHE_BUILD_TESTS=false .. \
+    && make -j$(nproc) \
+    && make install \
+    && ldconfig
+
 COPY ./ /social-network-microservices
 RUN cd /social-network-microservices \
     && mkdir -p build \
