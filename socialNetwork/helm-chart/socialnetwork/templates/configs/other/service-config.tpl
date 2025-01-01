@@ -175,6 +175,7 @@
     "url-shorten-service": {
       "addr": "url-shorten-service",
       "port": 9090,
+      "mgmt_port": 8080,
       "connections": 512,
       "timeout_ms": 100,
       "keepalive_ms": 5000

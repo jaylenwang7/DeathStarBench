@@ -5,7 +5,7 @@
 #include <thrift/transport/TServerSocket.h>
 
 #include "../utils.h"
-
+#include "../microservice_health.h"
 #include "../utils_memcached.h"
 #include "../utils_mongodb.h"
 #include "../utils_thrift.h"
@@ -20,6 +20,8 @@ using namespace social_network;
 
 static memcached_pool_st* memcached_client_pool;
 static mongoc_client_pool_t* mongodb_client_pool;
+static ServiceHealth* health_server;
+static DbOperationTracker mongo_tracker;
 
 void sigintHandler(int sig) {
   if (memcached_client_pool != nullptr) {
@@ -27,6 +29,10 @@ void sigintHandler(int sig) {
   }
   if (mongodb_client_pool != nullptr) {
     mongoc_client_pool_destroy(mongodb_client_pool);
+  }
+  if (health_server != nullptr) {
+    health_server->stop();
+    delete health_server;  // Clean up the allocated memory
   }
   exit(EXIT_SUCCESS);
 }
@@ -39,6 +45,10 @@ int main(int argc, char* argv[]) {
     exit(EXIT_FAILURE);
   }
   int port = config_json["url-shorten-service"]["port"];
+
+  int mgmt_port = config_json["url-shorten-service"]["mgmt_port"];
+  health_server = new ServiceHealth(mgmt_port, mongo_tracker);
+  health_server->start();
 
   int mongodb_conns = config_json["url-shorten-mongodb"]["connections"];
   int mongodb_timeout = config_json["url-shorten-mongodb"]["timeout_ms"];

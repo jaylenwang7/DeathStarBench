@@ -14,10 +14,14 @@
 #include "../../gen-cpp/social_network_types.h"
 #include "../logger.h"
 #include "../tracing.h"
+#include "../microservice_health.h"
 
 #define HOSTNAME "http://short-url/"
 
 namespace social_network {
+
+extern ServiceHealth* health_server;
+extern DbOperationTracker mongo_tracker;
 
 class UrlShortenHandler : public UrlShortenServiceIf {
  public:
@@ -65,11 +69,20 @@ std::string UrlShortenHandler::_GenRandomStr(int length) {
   _thread_lock->unlock();
   return return_str;
 }
+
 void UrlShortenHandler::ComposeUrls(
     std::vector<Url> &_return,
     int64_t req_id,
     const std::vector<std::string> &urls,
     const std::map<std::string, std::string> &carrier) {
+
+  // Check if service is shutting down
+  if (!health_server->is_accepting_requests()) {
+    ServiceException se;
+    se.errorCode = ErrorCode::SE_MONGODB_ERROR;
+    se.message = "Service is shutting down";
+    throw se;
+  }
 
   // Initialize a span
   TextMapReader reader(carrier);
@@ -95,67 +108,81 @@ void UrlShortenHandler::ComposeUrls(
 
     mongo_future = std::async(
         std::launch::async, [&](){
-          mongoc_client_t *mongodb_client = mongoc_client_pool_pop(
-              _mongodb_client_pool);
-          if (!mongodb_client) {
-            ServiceException se;
-            se.errorCode = ErrorCode::SE_MONGODB_ERROR;
-            se.message = "Failed to pop a client from MongoDB pool";
-            throw se;
-          }
-          auto collection = mongoc_client_get_collection(
-              mongodb_client, "url-shorten", "url-shorten");
-          if (!collection) {
-            ServiceException se;
-            se.errorCode = ErrorCode::SE_MONGODB_ERROR;
-            se.message = "Failed to create collection user from DB user";
-            mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
-            throw se;
-          }
+          // Track mongo operation
+          mongo_tracker.track();
+          
+          try {
+            mongoc_client_t *mongodb_client = mongoc_client_pool_pop(
+                _mongodb_client_pool);
+            if (!mongodb_client) {
+              ServiceException se;
+              se.errorCode = ErrorCode::SE_MONGODB_ERROR;
+              se.message = "Failed to pop a client from MongoDB pool";
+              mongo_tracker.complete();  // Complete tracking before throwing
+              throw se;
+            }
+            auto collection = mongoc_client_get_collection(
+                mongodb_client, "url-shorten", "url-shorten");
+            if (!collection) {
+              ServiceException se;
+              se.errorCode = ErrorCode::SE_MONGODB_ERROR;
+              se.message = "Failed to create collection user from DB user";
+              mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
+              mongo_tracker.complete();  // Complete tracking before throwing
+              throw se;
+            }
 
-          auto mongo_span = opentracing::Tracer::Global()->StartSpan(
-              "url_mongo_insert_client",
-              { opentracing::ChildOf(&span->context()) });
+            auto mongo_span = opentracing::Tracer::Global()->StartSpan(
+                "url_mongo_insert_client",
+                { opentracing::ChildOf(&span->context()) });
 
-          mongoc_bulk_operation_t *bulk;
-          bson_t *doc;
-          bson_error_t error;
-          bson_t reply;
-          bson_t *opts = BCON_NEW(
-              "writeConcern", "{",
-                  "wtimeout", BCON_INT32(100),
-              "}"
-          );
-          bool ret;
-          bulk = mongoc_collection_create_bulk_operation_with_opts(
-              collection, opts);
-          for (auto &url : target_urls) {
-            doc = bson_new();
-            BSON_APPEND_UTF8(doc, "shortened_url", url.shortened_url.c_str());
-            BSON_APPEND_UTF8(doc, "expanded_url", url.expanded_url.c_str());
-            mongoc_bulk_operation_insert (bulk, doc);
-            bson_destroy(doc);
-          }
-          ret = mongoc_bulk_operation_execute (bulk, &reply, &error);
-          if (!ret) {
-            LOG(error) << "MongoDB error: "<< error.message;
-            ServiceException se;
-            se.errorCode = ErrorCode::SE_MONGODB_ERROR;
-            se.message = "Failed to insert urls to MongoDB";
+            mongoc_bulk_operation_t *bulk;
+            bson_t *doc;
+            bson_error_t error;
+            bson_t reply;
+            bson_t *opts = BCON_NEW(
+                "writeConcern", "{",
+                    "wtimeout", BCON_INT32(100),
+                "}"
+            );
+            bool ret;
+            bulk = mongoc_collection_create_bulk_operation_with_opts(
+                collection, opts);
+            for (auto &url : target_urls) {
+              doc = bson_new();
+              BSON_APPEND_UTF8(doc, "shortened_url", url.shortened_url.c_str());
+              BSON_APPEND_UTF8(doc, "expanded_url", url.expanded_url.c_str());
+              mongoc_bulk_operation_insert (bulk, doc);
+              bson_destroy(doc);
+            }
+            ret = mongoc_bulk_operation_execute (bulk, &reply, &error);
+            if (!ret) {
+              LOG(error) << "MongoDB error: "<< error.message;
+              ServiceException se;
+              se.errorCode = ErrorCode::SE_MONGODB_ERROR;
+              se.message = "Failed to insert urls to MongoDB";
+              bson_destroy (&reply);
+              mongoc_bulk_operation_destroy(bulk);
+              mongoc_collection_destroy(collection);
+              mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
+              mongo_tracker.complete();  // Complete tracking before throwing
+              throw se;
+            }
             bson_destroy (&reply);
+            bson_destroy (opts);
             mongoc_bulk_operation_destroy(bulk);
             mongoc_collection_destroy(collection);
             mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
-            throw se;
+            mongo_span->Finish();
+            
+            // Complete tracking after successful operation
+            mongo_tracker.complete();
+          } catch (...) {
+            // Ensure we complete tracking even on unexpected errors
+            mongo_tracker.complete();
+            throw;
           }
-          bson_destroy (&reply);
-          bson_destroy (opts);
-          mongoc_bulk_operation_destroy(bulk);
-          mongoc_collection_destroy(collection);
-          mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
-          mongo_span->Finish();
         });
-
   }
 
   if (!urls.empty()) {
@@ -169,7 +196,6 @@ void UrlShortenHandler::ComposeUrls(
 
   _return = target_urls;
   span->Finish();
-
 }
 
 void UrlShortenHandler::GetExtendedUrls(
@@ -182,7 +208,5 @@ void UrlShortenHandler::GetExtendedUrls(
 }
 
 }
-
-
 
 #endif //SOCIAL_NETWORK_MICROSERVICES_SRC_URLSHORTENSERVICE_URLSHORTENHANDLER_H_

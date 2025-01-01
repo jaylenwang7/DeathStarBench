@@ -3,6 +3,9 @@ name: url-shorten-mongodb
 ports:
   - port: 27017
     targetPort: 27017
+  - port: 8080
+    targetPort: 8080
+    name: mgmt
 
 container:
   args: 
@@ -16,6 +19,29 @@ container:
   name: url-shorten-mongodb
   ports: 
     - containerPort: 27017
+    - containerPort: 8080
+      name: mgmt
+  lifecycle:
+    preStop:
+      enabled: true
+      exec:
+        command: 
+        - "sh"
+        - "-c"
+        - |
+          MGMT_PORT=$(cat /config/service-config.json | jq -r '."url-shorten-service"."mgmt_port"')
+          curl -X POST http://localhost:${MGMT_PORT}/prepare-shutdown
+          TIMEOUT=10
+          INTERVAL=0.1
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            COUNT=$(curl -s http://localhost:${MGMT_PORT}/active-mongo-ops | jq '.count')
+            if [ "$COUNT" = "0" ]; then
+              exit 0
+            fi
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
 
 configMaps:
   - name: mongod.conf
