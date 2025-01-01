@@ -10,16 +10,23 @@ RUN cd /tmp/redis-plus-plus\
 && make -j$(nproc) \
 && make install
 
-# Install Pistache
+# Install Meson (required for Pistache)
+RUN apt-get update && apt-get install -y python3-pip && \
+    pip3 install meson ninja
+
+# Install Pistache from source
 RUN cd /tmp \
     && git clone https://github.com/pistacheio/pistache.git \
     && cd pistache \
-    && git checkout v0.0.2 \
-    && mkdir build \
-    && cd build \
-    && cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DPISTACHE_BUILD_TESTS=false .. \
-    && make -j$(nproc) \
-    && make install \
+    && meson setup build \
+        --buildtype=release \
+        -DPISTACHE_USE_SSL=true \
+        -DPISTACHE_BUILD_EXAMPLES=false \
+        -DPISTACHE_BUILD_TESTS=false \
+        -DPISTACHE_BUILD_DOCS=false \
+        --prefix="/usr/local" \
+    && meson compile -C build \
+    && meson install -C build \
     && ldconfig
 
 COPY ./ /social-network-microservices
