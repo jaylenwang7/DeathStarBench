@@ -121,9 +121,14 @@ void UrlShortenHandler::ComposeUrls(
           bson_t *doc;
           bson_error_t error;
           bson_t reply;
+          bson_t *opts = BCON_NEW(
+              "writeConcern", "{",
+                  "wtimeout", BCON_INT32(100),
+              "}"
+          );
           bool ret;
           bulk = mongoc_collection_create_bulk_operation_with_opts(
-              collection, nullptr);
+              collection, opts);
           for (auto &url : target_urls) {
             doc = bson_new();
             BSON_APPEND_UTF8(doc, "shortened_url", url.shortened_url.c_str());
