@@ -149,6 +149,7 @@ void UrlShortenHandler::ComposeUrls(
             throw se;
           }
           bson_destroy (&reply);
+          bson_destroy (opts);
           mongoc_bulk_operation_destroy(bulk);
           mongoc_collection_destroy(collection);
           mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
