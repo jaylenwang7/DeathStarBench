@@ -47,7 +47,6 @@ class ComposePostHandler : public ComposePostServiceIf {
                    const std::map<std::string, std::string> &carrier) override;
 
  private:
-  std::atomic<bool>* _is_draining;
   ClientPool<ThriftClient<PostStorageServiceClient>> *_post_storage_client_pool;
   ClientPool<ThriftClient<UserTimelineServiceClient>>
       *_user_timeline_client_pool;
@@ -364,6 +363,7 @@ void ComposePostHandler::ComposePost(
     const std::string &text, const std::vector<int64_t> &media_ids,
     const std::vector<std::string> &media_types, const PostType::type post_type,
     const std::map<std::string, std::string> &carrier) {
+  
   TextMapReader reader(carrier);
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(

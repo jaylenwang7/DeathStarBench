@@ -5,7 +5,7 @@
 #include <thrift/transport/TServerSocket.h>
 
 #include "../utils.h"
-#include "../utils_health.h"
+
 #include "../utils_memcached.h"
 #include "../utils_mongodb.h"
 #include "../utils_thrift.h"

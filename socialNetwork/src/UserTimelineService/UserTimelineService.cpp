@@ -11,7 +11,7 @@
 #include "../logger.h"
 #include "../tracing.h"
 #include "../utils.h"
-#include "../utils_health.h"
+
 #include "../utils_mongodb.h"
 #include "../utils_redis.h"
 #include "../utils_thrift.h"

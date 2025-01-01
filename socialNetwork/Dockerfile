@@ -10,13 +10,6 @@ RUN cd /tmp/redis-plus-plus\
 && make -j$(nproc) \
 && make install
 
-# Install Pistache from PPA
-RUN apt-get update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:pistache+team/stable && \
-    apt-get update && \
-    apt-get install -y libpistache-dev
-
 COPY ./ /social-network-microservices
 RUN cd /social-network-microservices \
     && mkdir -p build \
