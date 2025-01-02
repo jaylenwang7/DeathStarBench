@@ -1,4 +1,4 @@
-{{- define "socialnetwork.templates.baseDeployment" }}
+{{- define "socialnetwork.templates.baseMongoDeployment" }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
