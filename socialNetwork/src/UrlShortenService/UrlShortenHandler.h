@@ -141,9 +141,7 @@ void UrlShortenHandler::ComposeUrls(
             bson_error_t error;
             bson_t reply;
             bson_t *opts = BCON_NEW(
-                "writeConcern", "{",
-                    "wtimeout", BCON_INT32(100),
-                "}"
+              "maxTimeMS", BCON_INT32(50)
             );
             bool ret;
             bulk = mongoc_collection_create_bulk_operation_with_opts(
