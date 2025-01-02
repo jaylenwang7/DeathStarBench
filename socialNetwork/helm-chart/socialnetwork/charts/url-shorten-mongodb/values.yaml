@@ -31,6 +31,8 @@ container:
         - |
           MGMT_PORT=$(cat /config/service-config.json | jq -r '."url-shorten-service"."mgmt_port"')
           curl -X POST http://localhost:${MGMT_PORT}/prepare-shutdown
+          # Wait for probe to remove the pod from the service
+          sleep 1.5
           TIMEOUT=10
           INTERVAL=0.1
           ELAPSED=0
