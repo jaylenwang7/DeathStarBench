@@ -28,22 +28,24 @@ container:
         command: 
         - "sh"
         - "-c"
-        - |
-          MGMT_PORT=$(cat /config/service-config.json | jq -r '."url-shorten-service"."mgmt_port"')
-          curl -X POST http://localhost:${MGMT_PORT}/prepare-shutdown
-          # Wait for probe to remove the pod from the service
-          sleep 1.5
-          TIMEOUT=10
-          INTERVAL=0.1
-          ELAPSED=0
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            COUNT=$(curl -s http://localhost:${MGMT_PORT}/active-mongo-ops | jq '.count')
-            if [ "$COUNT" = "0" ]; then
-              exit 0
-            fi
-            sleep $INTERVAL
-            ELAPSED=$((ELAPSED + INTERVAL))
-          done
+        - "mongo admin --eval 'db.shutdownServer()'"
+        - "sleep 1.5"
+        # - |
+        #   MGMT_PORT=$(cat /config/service-config.json | jq -r '."url-shorten-service"."mgmt_port"')
+        #   curl -X POST http://localhost:${MGMT_PORT}/prepare-shutdown
+        #   # Wait for probe to remove the pod from the service
+        #   sleep 1.5
+        #   TIMEOUT=10
+        #   INTERVAL=0.1
+        #   ELAPSED=0
+        #   while [ $ELAPSED -lt $TIMEOUT ]; do
+        #     COUNT=$(curl -s http://localhost:${MGMT_PORT}/active-mongo-ops | jq '.count')
+        #     if [ "$COUNT" = "0" ]; then
+        #       exit 0
+        #     fi
+        #     sleep $INTERVAL
+        #     ELAPSED=$((ELAPSED + INTERVAL))
+        #   done
 
 configMaps:
   - name: mongod.conf
