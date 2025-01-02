@@ -29,8 +29,11 @@ spec:
         {{- if .env }}
         {{- if not .disableReadinessProbe }}
         readinessProbe:
-          httpGet:
-            port: {{ .healthCheckPort | default .mgmtPort | default 8080 }}
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
           initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
           periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}

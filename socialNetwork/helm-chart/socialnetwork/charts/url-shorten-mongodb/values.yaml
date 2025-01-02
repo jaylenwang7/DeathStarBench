@@ -28,8 +28,18 @@ container:
         command: 
         - "sh"
         - "-c"
-        - "mongo admin --eval 'db.shutdownServer()'"
-        - "sleep 1.5"
+        - |
+          # Disable new connections
+          mongo admin --eval 'db.adminCommand({ "setParameter": 1, "maxConnections": 1 })'
+          # Wait briefly for existing operations to complete
+          sleep 2
+          # Get current operations and wait if there are any in progress
+          while [ $(mongo admin --quiet --eval 'db.currentOp({"active": true, "microsecs_running": {"$gt": 0}}).inprog.length') -gt 0 ]; do
+            echo "Waiting for operations to complete..."
+            sleep 0.1
+          done
+          # Shutdown the server
+          mongo admin --eval 'db.shutdownServer()'
         # - |
         #   MGMT_PORT=$(cat /config/service-config.json | jq -r '."url-shorten-service"."mgmt_port"')
         #   curl -X POST http://localhost:${MGMT_PORT}/prepare-shutdown
