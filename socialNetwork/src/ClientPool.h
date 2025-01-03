@@ -122,6 +122,54 @@ TClient * ClientPool<TClient>::Pop() {
 template<class TClient>
 void ThriftClient<TClient>::ConnectWithTimeout(int timeout_ms) {
   _socket = std::make_shared<apache::thrift::transport::TSocket>(_addr, _port);
+  
+  // Fast connection test before attempting full Thrift connection
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock < 0) {
+    throw apache::thrift::transport::TTransportException("Failed to create socket");
+  }
+  
+  // Set non-blocking
+  int flags = fcntl(sock, F_GETFL, 0);
+  fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+  
+  struct sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(_port);
+  inet_pton(AF_INET, _addr.c_str(), &addr.sin_addr);
+  
+  int ret = connect(sock, (struct sockaddr*)&addr, sizeof(addr));
+  if (ret < 0 && errno != EINPROGRESS) {
+    close(sock);
+    throw apache::thrift::transport::TTransportException("Connection failed immediately");
+  }
+  
+  // Wait for connection with timeout
+  fd_set fdset;
+  struct timeval tv;
+  
+  FD_ZERO(&fdset);
+  FD_SET(sock, &fdset);
+  tv.tv_sec = 0;
+  tv.tv_usec = timeout_ms * 1000;
+  
+  ret = select(sock + 1, nullptr, &fdset, nullptr, &tv);
+  if (ret <= 0) {
+    close(sock);
+    throw apache::thrift::transport::TTransportException("Connection timeout");
+  }
+  
+  // Check if connection was successful
+  int error = 0;
+  socklen_t len = sizeof(error);
+  if (getsockopt(sock, SOL_SOCKET, SO_ERROR, &error, &len) < 0 || error != 0) {
+    close(sock);
+    throw apache::thrift::transport::TTransportException("Connection failed");
+  }
+  
+  close(sock);
+  
+  // Now proceed with Thrift connection
   _socket->setConnTimeout(timeout_ms);
   _socket->setSendTimeout(timeout_ms);
   _socket->setRecvTimeout(timeout_ms);
@@ -130,7 +178,7 @@ void ThriftClient<TClient>::ConnectWithTimeout(int timeout_ms) {
   _protocol = std::make_shared<apache::thrift::protocol::TBinaryProtocol>(_transport);
   _client = std::make_shared<TClient>(_protocol);
   
-  _transport->open(); // Will throw quickly if connection fails
+  _transport->open();
 }
 
 template<class TClient>
