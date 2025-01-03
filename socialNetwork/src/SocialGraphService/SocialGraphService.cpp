@@ -19,10 +19,18 @@ using apache::thrift::transport::TFramedTransportFactory;
 using apache::thrift::transport::TServerSocket;
 using namespace social_network;
 
-void sigintHandler(int sig) { exit(EXIT_SUCCESS); }
+static mongoc_client_pool_t* mongodb_client_pool;
+
+void sigintHandler(int sig) { 
+  if (mongodb_client_pool != nullptr) {
+    mongoc_client_pool_destroy(mongodb_client_pool);
+  }
+  exit(EXIT_SUCCESS); 
+}
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
 
   // Command line options
@@ -69,8 +77,8 @@ int main(int argc, char *argv[]) {
 
   int redis_cluster_config_flag = config_json["social-graph-redis"]["use_cluster"];
   int redis_replica_config_flag = config_json["social-graph-redis"]["use_replica"];
-  mongoc_client_pool_t *mongodb_client_pool =
-      init_mongodb_client_pool(config_json, "social-graph", mongodb_conns);
+  
+  mongodb_client_pool = init_mongodb_client_pool(config_json, "social-graph", mongodb_conns);
 
   if (mongodb_client_pool == nullptr) {
     return EXIT_FAILURE;
