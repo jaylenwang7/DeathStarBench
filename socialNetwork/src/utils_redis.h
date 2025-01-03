@@ -32,6 +32,7 @@ RedisConfig init_redis_config(
 	
 	config.pool_opts.size = config_json[prefix]["connections"];
 	config.pool_opts.wait_timeout = std::chrono::milliseconds(config_json[prefix]["timeout_ms"]);
+	config.pool_opts.connect_timeout = std::chrono::milliseconds(config_json[prefix]["timeout_ms"]);
 	config.pool_opts.connection_lifetime = std::chrono::milliseconds(config_json[prefix]["keepalive_ms"]);
 	
 	// Default operation timeout of 100ms if not specified
