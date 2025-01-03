@@ -109,7 +109,7 @@ TClient * ClientPool<TClient>::Pop() {
 
   if (client) {
     try {
-      client->Connect();
+      client->ConnectWithTimeout(50);
     } catch (...) {
       LOG(error) << "Failed to connect " + _client_type;
       Remove(client);
@@ -117,6 +117,20 @@ TClient * ClientPool<TClient>::Pop() {
     }
   }
   return client;
+}
+
+template<class TClient>
+void ThriftClient<TClient>::ConnectWithTimeout(int timeout_ms) {
+  _socket = std::make_shared<apache::thrift::transport::TSocket>(_addr, _port);
+  _socket->setConnTimeout(timeout_ms);
+  _socket->setSendTimeout(timeout_ms);
+  _socket->setRecvTimeout(timeout_ms);
+  
+  _transport = std::make_shared<apache::thrift::transport::TFramedTransport>(_socket);
+  _protocol = std::make_shared<apache::thrift::protocol::TBinaryProtocol>(_transport);
+  _client = std::make_shared<TClient>(_protocol);
+  
+  _transport->open(); // Will throw quickly if connection fails
 }
 
 template<class TClient>
