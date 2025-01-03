@@ -16,9 +16,9 @@ mongoc_client_pool_t* init_mongodb_client_pool(
   std::string addr = config_json[service_name + "-mongodb"]["addr"];
   int port = config_json[service_name + "-mongodb"]["port"];
   std::string uri_str = "mongodb://" + addr + ":" +
-      std::to_string(port) + "/?appname=" + service_name + "-service";
-  uri_str += "&" MONGOC_URI_SERVERSELECTIONTIMEOUTMS "="
-      + std::to_string(SERVER_SELECTION_TIMEOUT_MS);
+    std::to_string(port) + "/?appname=" + service_name + "-service";
+  uri_str += "&" MONGOC_URI_SERVERSELECTIONTIMEOUTMS "=" + std::to_string(SERVER_SELECTION_TIMEOUT_MS);
+  uri_str += "&" MONGOC_URI_CONNECTTIMEOUTMS "=100"; // Connection timeout
 
   mongoc_init();
   bson_error_t error;
