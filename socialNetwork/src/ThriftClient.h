@@ -46,6 +46,7 @@ class ThriftClient : public GenericClient {
   void Connect() override;
   void Disconnect() override;
   bool IsConnected() override;
+  void ConnectWithTimeout(int timeout_ms);
 
  private:
   TThriftClient *_client;
@@ -139,6 +140,21 @@ void ThriftClient<TThriftClient>::Disconnect() {
   if (IsConnected()) {
     try {
       _transport->close();
+    } catch (TException &tx) {
+      throw tx;
+    }
+  }
+}
+
+template<class TThriftClient>
+void ThriftClient<TThriftClient>::ConnectWithTimeout(int timeout_ms) {
+  if (!IsConnected()) {
+    _socket->setConnTimeout(timeout_ms);
+    _socket->setSendTimeout(timeout_ms);
+    _socket->setRecvTimeout(timeout_ms);
+    
+    try {
+      _transport->open();
     } catch (TException &tx) {
       throw tx;
     }
