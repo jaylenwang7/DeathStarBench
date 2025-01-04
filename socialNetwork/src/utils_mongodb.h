@@ -4,7 +4,7 @@
 #include <mongoc.h>
 #include <bson/bson.h>
 
-#define SERVER_SELECTION_TIMEOUT_MS 300
+#define SERVER_SELECTION_TIMEOUT_MS 100
 
 namespace social_network {
 

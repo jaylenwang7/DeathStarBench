@@ -33,12 +33,18 @@ RedisConfig init_redis_config(
 	config.pool_opts.size = config_json[prefix]["connections"];
 	config.pool_opts.wait_timeout = std::chrono::milliseconds(config_json[prefix]["timeout_ms"]);
 	config.pool_opts.connect_timeout = std::chrono::milliseconds(config_json[prefix]["timeout_ms"]);
+	config.pool_opts.socket_timeout = std::chrono::milliseconds(config_json[prefix]["timeout_ms"]);
 	config.pool_opts.connection_lifetime = std::chrono::milliseconds(config_json[prefix]["keepalive_ms"]);
 	
 	// Default operation timeout of 100ms if not specified
 	config.cmd_timeout = std::chrono::milliseconds(
 		config_json[prefix].contains("operation_timeout_ms") ? 
 		config_json[prefix]["operation_timeout_ms"].get<int>() : 100);
+	
+	// Default pipeline timeout of 100ms if not specified
+	config.pipe_timeout = std::chrono::milliseconds(
+			config_json[prefix].contains("pipeline_timeout_ms") ? 
+			config_json[prefix]["pipeline_timeout_ms"].get<int>() : 100);
 	
 	return config;
 }
@@ -62,6 +68,30 @@ Redis init_redis_replica_client_pool(const json& config_json, const std::string&
 	auto redis = Redis(config.connection_opts, config.pool_opts);
 	redis.command_timeout(config.cmd_timeout);
 	return redis;
+}
+
+template<typename RedisClient>
+void ExecutePipelineWithTimeout(
+    RedisClient& redis_client,
+    const std::function<void(Pipeline&)>& pipe_ops,
+    std::chrono::milliseconds timeout) {
+    
+    auto future = std::async(std::launch::async, [&]() {
+        auto pipe = redis_client.pipeline(false);
+        pipe_ops(pipe);
+        return pipe.exec();
+    });
+
+    if (future.wait_for(timeout) != std::future_status::ready) {
+        throw Error("Pipeline operation timed out");
+    }
+    
+    try {
+        future.get();
+    } catch (const Error& err) {
+        LOG(error) << "Pipeline operation failed: " << err.what();
+        throw;
+    }
 }
 
 
