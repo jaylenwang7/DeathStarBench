@@ -8,6 +8,22 @@ local function _StrIsEmpty(s)
   return s == nil or s == ''
 end
 
+-- Add safe number conversion
+local function _SafeNumber(s, default)
+  if s == nil then return default end
+  local n = tonumber(s)
+  if n == nil then return default end
+  return n
+end
+
+-- Add safe JSON decode
+local function _SafeJSONDecode(s, default)
+  if _StrIsEmpty(s) then return default end
+  local status, result = pcall(require("cjson").decode, s)
+  if not status then return default end
+  return result
+end
+
 function _M.ComposePost()
   local bridge_tracer = require "opentracing_bridge_tracer"
   local ngx = ngx
@@ -22,11 +38,12 @@ function _M.ComposePost()
   local req_id = tonumber(string.sub(ngx.var.request_id, 0, 15), 16)
   local tracer = bridge_tracer.new_from_global()
   local parent_span_context = tracer:binary_extract(ngx.var.opentracing_binary_context)
-
+  local span = nil  -- Declare span early for proper error handling
 
   ngx.req.read_body()
   local post = ngx.req.get_post_args()
 
+  -- Input validation
   if (_StrIsEmpty(post.user_id) or _StrIsEmpty(post.username) or
       _StrIsEmpty(post.post_type) or _StrIsEmpty(post.text)) then
     ngx.status = ngx.HTTP_BAD_REQUEST
@@ -35,43 +52,59 @@ function _M.ComposePost()
     ngx.exit(ngx.HTTP_BAD_REQUEST)
   end
 
-  local status, ret
+  -- Safe number conversions
+  local user_id = _SafeNumber(post.user_id)
+  local post_type = _SafeNumber(post.post_type)
+  
+  if not user_id or not post_type then
+    ngx.status = ngx.HTTP_BAD_REQUEST
+    ngx.say("Invalid numeric arguments")
+    ngx.log(ngx.ERR, "Invalid numeric arguments")
+    ngx.exit(ngx.HTTP_BAD_REQUEST)
+  end
 
-  local client = GenericObjectPool:connection(
+  -- Get client connection with error handling
+  local status, client = pcall(GenericObjectPool.connection, GenericObjectPool,
       ComposePostServiceClient, "compose-post-service" .. k8s_suffix, 9090)
+  
+  if not status then
+    ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+    ngx.say("Failed to get client connection")
+    ngx.log(ngx.ERR, "Failed to get client connection: " .. tostring(client))
+    ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
+  end
 
-  local span = tracer:start_span("compose_post_client",
+  -- Start span after successful connection
+  span = tracer:start_span("compose_post_client",
       { ["references"] = { { "child_of", parent_span_context } } })
   local carrier = {}
   tracer:text_map_inject(span:context(), carrier)
 
-  if (not _StrIsEmpty(post.media_ids) and not _StrIsEmpty(post.media_types)) then
-    status, ret = pcall(client.ComposePost, client,
-        req_id, post.username, tonumber(post.user_id), post.text,
-        cjson.decode(post.media_ids), cjson.decode(post.media_types),
-        tonumber(post.post_type), carrier)
-  else
-    status, ret = pcall(client.ComposePost, client,
-        req_id, post.username, tonumber(post.user_id), post.text,
-        {}, {}, tonumber(post.post_type), carrier)
-  end
+  -- Safe handling of media parameters
+  local media_ids = _SafeJSONDecode(post.media_ids, {})
+  local media_types = _SafeJSONDecode(post.media_types, {})
+
+  -- Execute post composition
+  status, ret = pcall(client.ComposePost, client,
+      req_id, post.username, user_id, post.text,
+      media_ids, media_types, post_type, carrier)
+
+  -- Always return connection to pool, even on error
+  GenericObjectPool:returnConnection(client)
+
   if not status then
     ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
-    if (ret.message) then
-      ngx.say("compost_post failure: " .. ret.message)
-      ngx.log(ngx.ERR, "compost_post failure: " .. ret.message)
-    else
-      ngx.say("compost_post failure: " .. ret)
-      ngx.log(ngx.ERR, "compost_post failure: " .. ret)
-    end
-    client.iprot.trans:close()
-    ngx.exit(ngx.status)
+    local error_msg = (ret.message and ret.message or tostring(ret))
+    ngx.say("compose_post failure: " .. error_msg)  -- Fixed typo in error message
+    ngx.log(ngx.ERR, "compose_post failure: " .. error_msg)
+    if span then span:finish() end
+    ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
   end
 
-  GenericObjectPool:returnConnection(client)
+  -- Success response
   ngx.status = ngx.HTTP_OK
   ngx.say("Successfully upload post")
-  span:finish()
+  if span then span:finish() end
   ngx.exit(ngx.status)
 end
 

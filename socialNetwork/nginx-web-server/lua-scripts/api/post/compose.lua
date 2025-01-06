@@ -91,6 +91,7 @@ function _M.ComposePost()
         ngx.log(ngx.ERR, "compost_post failure: " .. ret)
       end
       client.iprot.trans:close()
+      span:finish()
       ngx.exit(ngx.status)
     end
 
