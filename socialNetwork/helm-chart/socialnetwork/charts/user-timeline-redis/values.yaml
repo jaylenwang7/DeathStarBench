@@ -1,25 +1,22 @@
-name: user-timeline-service
+name: user-timeline-redis
 
 ports:
-  - port: 9090
-    targetPort: 9090
+  - port: 6379
+    targetPort: 6379
 
 container:
-  command: UserTimelineService
+  args: 
+  - /social-network-microservices/config/redis.conf
   image:
-    registry: ~
-    repository: ~
-    name: ~
-    tag: ~
-  name: user-timeline-service
+    registry: docker.io
+    repository: library
+    name: redis
+    tag: 6.2.4
+  name: user-timeline-redis
   ports: 
-    - containerPort: 9090
+    - containerPort: 6379
 
 configMaps:
-  - name: jaeger-config.yml
-    mountPath: /social-network-microservices/config/jaeger-config.yml
-    value: jaeger-config
-
-  - name: service-config.json
-    mountPath: /social-network-microservices/config/service-config.json
-    value: service-config
+  - name: redis.conf
+    mountPath: /social-network-microservices/config/redis.conf
+    value: redis
