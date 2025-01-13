@@ -5,8 +5,11 @@ ports:
     targetPort: 8080
 
 container:
-  image: yg397/media-frontend
-  imageVersion: xenial
+  image:
+    registry: docker.io
+    repository: yg397
+    name: media-frontend
+    tag: xenial
   name: media-frontend
   ports: 
   - containerPort: 8081
@@ -23,8 +26,11 @@ container:
         command: ["sh", "-c", "nginx -s quit && sleep 5"]
 
 initContainer:
-  image: alpine/git
-  imageVersion: latest
+  image:
+    registry: docker.io
+    repository: alpine
+    name: git
+    tag: latest
   name: alpine-container
   volumeMounts:
   - name: lua-scripts
