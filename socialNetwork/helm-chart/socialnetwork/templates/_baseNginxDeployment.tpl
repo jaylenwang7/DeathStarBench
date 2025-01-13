@@ -54,7 +54,7 @@ spec:
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}
-          value: "{{ (tpl ($e.value | toString) $) }}"
+          value: "{{ tpl ($e.value | toString) $ }}"
         {{ end -}}
         {{ end -}}
         {{- if .command}}
@@ -64,7 +64,7 @@ spec:
         {{- if .args}}
         args:
         {{- range $arg := .args}}
-        - {{ $arg }}
+        - {{ tpl $arg $ }}
         {{- end -}}
         {{- end }}
         {{- if .resources }}  
@@ -101,7 +101,7 @@ spec:
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}
-          value: "{{ (tpl ($e.value | toString) $) }}"
+          value: "{{ tpl ($e.value | toString) $ }}"
         {{ end -}}
         {{ end -}}
         {{- if .args}}
@@ -109,7 +109,6 @@ spec:
         {{- range $arg := .args}}
         - {{ tpl $arg $ }}
         {{- end -}}
-        {{- end }}
         {{- end }}
         {{- if .volumeMounts }}        
         volumeMounts: 
