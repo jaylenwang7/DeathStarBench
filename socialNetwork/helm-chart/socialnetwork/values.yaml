@@ -8,6 +8,10 @@ global:
   imageName: social-network-microservices
   defaultImageVersion: latest
 
+  git:
+    repository: https://github.com/jaylenwang7/DeathStarBench.git
+    branch: master
+
   redis:
     cluster:
       enabled: false

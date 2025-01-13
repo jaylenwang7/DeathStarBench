@@ -68,7 +68,7 @@ initContainer:
   - name: keys
     mountPath: /keys
   command: "/bin/sh" 
-  args: ["-c", "git clone https://github.com/delimitrou/DeathStarBench.git /DeathStarBench &&
+  args: ["-c", "git clone -b {{ .Values.global.git.branch }} {{ .Values.global.git.repository }} /DeathStarBench &&
             cp -r /DeathStarBench/socialNetwork/gen-lua/* /gen-lua/ &&
             cp -r /DeathStarBench/socialNetwork/docker/openresty-thrift/lua-thrift/* /lua-thrift/ &&
             cp -r /DeathStarBench/socialNetwork/nginx-web-server/lua-scripts/* /lua-scripts/ &&
