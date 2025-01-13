@@ -20,7 +20,7 @@ spec:
       containers:
       {{- with .Values.container }}
       - name: "{{ .name }}"
-        image: {{ .image.registry | default $.Values.global.dockerRegistry }}/{{ .image.repository }}/{{ .image.name }}:{{ .image.tag | default $.Values.global.defaultImageVersion }}
+        image: {{ .image.registry | default $.Values.global.dockerRegistry }}/{{ .image.repository | default $.Values.global.repository }}/{{ .image.name | default $.Values.global.imageName }}:{{ .image.tag | default $.Values.global.defaultImageVersion }}
         imagePullPolicy: {{ .imagePullPolicy | default $.Values.global.imagePullPolicy }}
         ports:
         {{- range $cport := .ports }}
