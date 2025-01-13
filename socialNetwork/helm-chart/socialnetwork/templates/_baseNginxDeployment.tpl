@@ -107,8 +107,9 @@ spec:
         {{- if .args}}
         args:
         {{- range $arg := .args}}
-        - {{ $arg }}
+        - {{ tpl $arg $ }}
         {{- end -}}
+        {{- end }}
         {{- end }}
         {{- if .volumeMounts }}        
         volumeMounts: 
