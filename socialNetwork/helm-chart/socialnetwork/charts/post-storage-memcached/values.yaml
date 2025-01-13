@@ -6,11 +6,14 @@ ports:
     targetPort: 11211
 
 container:
-  image: library/memcached
-  imageVersion: 1.6.7
+  image:
+    registry: docker.io
+    repository: library
+    name: memcached
+    tag: 1.6.7
   name: post-storage-memcached
   ports: 
-  - containerPort: 11211
+    - containerPort: 11211
 
 configMaps:
   - name: jaeger-config.yml

@@ -9,8 +9,11 @@ ports:
 terminationGracePeriodSeconds: 600
 
 container:
-  image: yg397/openresty-thrift
-  imageVersion: xenial
+  image:
+    registry: docker.io
+    repository: yg397
+    name: openresty-thrift
+    tag: xenial
   name: nginx-thrift
   ports: 
   - containerPort: 8080
@@ -47,8 +50,11 @@ container:
 
 
 initContainer:
-  image: alpine/git
-  imageVersion: latest
+  image:
+    registry: docker.io
+    repository: alpine
+    name: git
+    tag: latest
   name: alpine-container
   volumeMounts:
   - name: lua-scripts

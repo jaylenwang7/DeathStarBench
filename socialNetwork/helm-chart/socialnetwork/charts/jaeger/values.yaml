@@ -23,8 +23,11 @@ container:
   env: 
   - name: COLLECTOR_ZIPKIN_HTTP_PORT
     value: 9411
-  image: jaegertracing/all-in-one
-  imageVersion: 1.60
+  image:
+    registry: docker.io
+    repository: jaegertracing
+    name: all-in-one
+    tag: 1.17
   name: jaeger
   disableReadinessProbe: true
   ports: 

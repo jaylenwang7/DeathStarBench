@@ -6,10 +6,14 @@ ports:
 
 container:
   command: MediaService
-  image: deathstarbench/social-network-microservices
+  image:
+    registry: ~
+    repository: ~
+    name: ~
+    tag: ~
   name: media-service
   ports: 
-  - containerPort: 9090
+    - containerPort: 9090
 
 configMaps:
   - name: jaeger-config.yml
