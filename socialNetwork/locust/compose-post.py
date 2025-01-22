@@ -9,12 +9,71 @@ import json
 from locust import events
 
 import locust.stats
-locust.stats.CONSOLE_STATS_INTERVAL_SEC = 1
-locust.stats.HISTORY_STATS_INTERVAL_SEC = 60
-locust.stats.CSV_STATS_INTERVAL_SEC = 60
-locust.stats.CSV_STATS_FLUSH_INTERVAL_SEC = 60
-locust.stats.CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW = 60
-locust.stats.PERCENTILES_TO_REPORT = [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0]
+
+def load_stats_config():
+    """
+    Load Locust stats configuration from a JSON file if it exists,
+    otherwise use default values.
+    """
+    # Default values
+    default_config = {
+        # How frequently (in seconds) stats are updated in the console output
+        "CONSOLE_STATS_INTERVAL_SEC": 1,
+        
+        # How often (in seconds) stats are aggregated for historical records
+        # Used for graphs and time-series analysis
+        # Records stats over a rolling window of this duration
+        "HISTORY_STATS_INTERVAL_SEC": 60,
+        
+        # Interval (in seconds) between writes to the CSV stats file
+        # Controls how frequently test results are saved to disk
+        # Records the total stats for each user and the total stats for the whole test
+        # but will record this data at the interval specified here
+        "CSV_STATS_INTERVAL_SEC": 60,
+        
+        # How often (in seconds) the CSV file buffer is flushed to disk
+        # Lower values reduce risk of data loss but may impact performance
+        "CSV_STATS_FLUSH_INTERVAL_SEC": 60,
+        
+        # Size of the rolling window (in seconds) used to calculate
+        # current response time percentiles in the console output
+        "CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW": 60,
+        
+        # List of percentiles to calculate and include in reports
+        # 0.50 = median, 0.99 = 99th percentile, 1.0 = max value
+        "PERCENTILES_TO_REPORT": [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0]
+    }
+
+    # Try to load config from JSON file
+    config_path = os.path.join(os.path.dirname(__file__), 'locust_stats_config.json')
+    
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                loaded_config = json.load(f)
+                # Update defaults with loaded values
+                default_config.update(loaded_config)
+                print(f"Loaded configuration from {config_path}")
+        else:
+            print("No configuration file found, using defaults")
+    except json.JSONDecodeError as e:
+        print(f"Error reading configuration file: {e}")
+        print("Using default values")
+    except Exception as e:
+        print(f"Unexpected error loading configuration: {e}")
+        print("Using default values")
+
+    # Apply configuration to locust.stats
+    locust.stats.CONSOLE_STATS_INTERVAL_SEC = default_config["CONSOLE_STATS_INTERVAL_SEC"]
+    locust.stats.HISTORY_STATS_INTERVAL_SEC = default_config["HISTORY_STATS_INTERVAL_SEC"]
+    locust.stats.CSV_STATS_INTERVAL_SEC = default_config["CSV_STATS_INTERVAL_SEC"]
+    locust.stats.CSV_STATS_FLUSH_INTERVAL_SEC = default_config["CSV_STATS_FLUSH_INTERVAL_SEC"]
+    locust.stats.CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW = default_config["CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW"]
+    locust.stats.PERCENTILES_TO_REPORT = default_config["PERCENTILES_TO_REPORT"]
+
+    return default_config
+
+load_stats_config()
 
 random.seed(time.time())
 
