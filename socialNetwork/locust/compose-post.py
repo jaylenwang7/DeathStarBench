@@ -7,8 +7,16 @@ import logging
 import time
 import json
 from locust import events
+import argparse
 
 import locust.stats
+
+def parse_percentiles(percentiles_str):
+    """Convert comma-separated string of percentiles to list of floats"""
+    try:
+        return [float(x.strip()) for x in percentiles_str.split(',')]
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"Invalid percentiles format: {e}")
 
 def load_stats_config():
     """
@@ -44,24 +52,51 @@ def load_stats_config():
         "PERCENTILES_TO_REPORT": [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0]
     }
 
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Locust Stats Configuration')
+    parser.add_argument('--console-interval', type=int, help='Console stats interval in seconds')
+    parser.add_argument('--history-interval', type=int, help='History stats interval in seconds')
+    parser.add_argument('--csv-interval', type=int, help='CSV stats interval in seconds')
+    parser.add_argument('--csv-flush-interval', type=int, help='CSV stats flush interval in seconds')
+    parser.add_argument('--percentile-window', type=int, help='Response time percentile window in seconds')
+    parser.add_argument('--percentiles', type=parse_percentiles, 
+                       help='Comma-separated list of percentiles to report (e.g., "0.5,0.75,0.9,0.99")')
+    parser.add_argument('--config', type=str, default='locust_stats_config.json',
+                       help='Path to JSON config file (default: locust_stats_config.json)')
+    
+    args = parser.parse_args()
+
     # Try to load config from JSON file
-    config_path = os.path.join(os.path.dirname(__file__), 'locust_stats_config.json')
+    config_path = os.path.join(os.path.dirname(__file__), args.config)
     
     try:
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
                 loaded_config = json.load(f)
-                # Update defaults with loaded values
                 default_config.update(loaded_config)
                 print(f"Loaded configuration from {config_path}")
         else:
-            print("No configuration file found, using defaults")
+            print(f"No configuration file found at {config_path}, using defaults")
     except json.JSONDecodeError as e:
         print(f"Error reading configuration file: {e}")
         print("Using default values")
     except Exception as e:
         print(f"Unexpected error loading configuration: {e}")
         print("Using default values")
+
+    # Override with command line arguments if provided
+    if args.console_interval is not None:
+        default_config["CONSOLE_STATS_INTERVAL_SEC"] = args.console_interval
+    if args.history_interval is not None:
+        default_config["HISTORY_STATS_INTERVAL_SEC"] = args.history_interval
+    if args.csv_interval is not None:
+        default_config["CSV_STATS_INTERVAL_SEC"] = args.csv_interval
+    if args.csv_flush_interval is not None:
+        default_config["CSV_STATS_FLUSH_INTERVAL_SEC"] = args.csv_flush_interval
+    if args.percentile_window is not None:
+        default_config["CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW"] = args.percentile_window
+    if args.percentiles is not None:
+        default_config["PERCENTILES_TO_REPORT"] = args.percentiles
 
     # Apply configuration to locust.stats
     locust.stats.CONSOLE_STATS_INTERVAL_SEC = default_config["CONSOLE_STATS_INTERVAL_SEC"]
