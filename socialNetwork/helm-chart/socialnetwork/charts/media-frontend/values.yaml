@@ -8,7 +8,7 @@ container:
   image:
     registry: docker.io
     repository: jaylenwang
-    name: media-frontend
+    name: openresty-thrift
     tag: xenial-v1
   name: media-frontend
   ports: 
