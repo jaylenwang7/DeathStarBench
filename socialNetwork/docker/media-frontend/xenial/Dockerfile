@@ -130,10 +130,18 @@ RUN cd /tmp/lualongnumber \
     && make \
     && make install
 
+# Add DeathStarBench files directly into the image
+RUN cd /tmp \
+    && git clone https://github.com/jaylenwang7/DeathStarBench.git \
+    && mkdir -p /usr/local/openresty/nginx/lua-scripts \
+    && cp -r /tmp/DeathStarBench/socialNetwork/media-frontend/lua-scripts/* /usr/local/openresty/nginx/lua-scripts/ \
+    && rm -rf /tmp/DeathStarBench
 
+# Copy nginx configuration files
+COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+COPY nginx.vh.default.conf /etc/nginx/conf.d/default.conf
 
-# RUN apt-get install -y libboost-all-dev libbson-1.0 libmongoc-1.0-0 \
-    # && luarocks install "https://raw.githubusercontent.com/moai/luamongo/master/rockspec/luamongo-scm-0.rockspec"
-
-# TODO: remove any other apt packages?
 CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]
+
+# Use SIGQUIT instead of default SIGTERM to cleanly drain requests
+STOPSIGNAL SIGQUIT
