@@ -206,6 +206,19 @@ RUN luarocks install long \
     && luarocks install lua-resty-jwt \
     && ldconfig
 
+# Add after the luarocks install section and before the nginx.conf copy
+RUN cd /tmp \
+    && git clone https://github.com/jaylenwang7/DeathStarBench.git \
+    && mkdir -p /gen-lua \
+    && mkdir -p /usr/local/openresty/nginx/lua-scripts \
+    && mkdir -p /usr/local/openresty/nginx/pages \
+    && mkdir -p /keys \
+    && cp -r /tmp/DeathStarBench/socialNetwork/gen-lua/* /gen-lua/ \
+    && cp -r /tmp/DeathStarBench/socialNetwork/docker/openresty-thrift/lua-thrift/* /usr/local/openresty/lualib/thrift/ \
+    && cp -r /tmp/DeathStarBench/socialNetwork/nginx-web-server/lua-scripts/* /usr/local/openresty/nginx/lua-scripts/ \
+    && cp -r /tmp/DeathStarBench/socialNetwork/nginx-web-server/pages/* /usr/local/openresty/nginx/pages/ \
+    && cp /tmp/DeathStarBench/socialNetwork/keys/* /keys/ \
+    && rm -rf /tmp/DeathStarBench
 
 # Copy nginx configuration files
 COPY nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
