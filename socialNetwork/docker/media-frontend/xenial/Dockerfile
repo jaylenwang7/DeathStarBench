@@ -58,6 +58,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         ca-certificates \
         curl \
         gettext-base \
+        git \
         libgd-dev \
         libgeoip-dev \
         libncurses5-dev \
