@@ -20,17 +20,6 @@ container:
   env:
   - name: fqdn_suffix
     value: ".{{ .Release.Namespace }}.svc.cluster.local"
-  volumeMounts:
-    - name: lua-scripts
-      mountPath: /usr/local/openresty/nginx/lua-scripts
-    - name: lua-thrift
-      mountPath: /usr/local/openresty/lualib/thrift
-    - name: pages
-      mountPath: /usr/local/openresty/nginx/pages
-    - name: gen-lua
-      mountPath: /gen-lua
-    - name: keys
-      mountPath: /keys
   lifecycle:
     preStop:
       enabled: true
@@ -47,13 +36,6 @@ container:
           nginx -s quit
           # Wait for nginx to exit
           while pgrep -x nginx; do sleep 0.1; done
-
-volumes:
-  - name: lua-scripts
-  - name: pages
-  - name: gen-lua
-  - name: lua-thrift
-  - name: keys
 
 configMaps:
   - name: jaeger-config.json

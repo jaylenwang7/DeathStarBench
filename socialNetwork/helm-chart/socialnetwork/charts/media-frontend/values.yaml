@@ -16,9 +16,6 @@ container:
   env:
   - name: fqdn_suffix
     value: ".{{ .Release.Namespace }}.svc.cluster.local"
-  volumeMounts:
-    - name: lua-scripts
-      mountPath: /usr/local/openresty/nginx/lua-scripts
   lifecycle:
     preStop:
       enabled: true
@@ -35,9 +32,6 @@ container:
           nginx -s quit
           # Wait for nginx to exit
           while pgrep -x nginx; do sleep 0.1; done
-
-volumes:
-  - name: lua-scripts
 
 configMaps:
   - name: nginx.conf
