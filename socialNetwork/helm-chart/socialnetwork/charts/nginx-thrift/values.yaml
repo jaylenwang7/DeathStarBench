@@ -11,9 +11,9 @@ terminationGracePeriodSeconds: 600
 container:
   image:
     registry: docker.io
-    repository: yg397
+    repository: jaylenwang
     name: openresty-thrift
-    tag: xenial
+    tag: xenial-v1
   name: nginx-thrift
   ports: 
   - containerPort: 8080
@@ -47,33 +47,6 @@ container:
           nginx -s quit
           # Wait for nginx to exit
           while pgrep -x nginx; do sleep 0.1; done
-
-
-initContainer:
-  image:
-    registry: docker.io
-    repository: alpine
-    name: git
-    tag: latest
-  name: alpine-container
-  volumeMounts:
-  - name: lua-scripts
-    mountPath: /lua-scripts
-  - name: lua-thrift
-    mountPath: /lua-thrift
-  - name: pages
-    mountPath: /pages
-  - name: gen-lua
-    mountPath: /gen-lua
-  - name: keys
-    mountPath: /keys
-  command: "/bin/sh" 
-  args: ["-c", "git clone -b {{ .Values.global.git.branch }} {{ .Values.global.git.repository }} /DeathStarBench &&
-            cp -r /DeathStarBench/socialNetwork/gen-lua/* /gen-lua/ &&
-            cp -r /DeathStarBench/socialNetwork/docker/openresty-thrift/lua-thrift/* /lua-thrift/ &&
-            cp -r /DeathStarBench/socialNetwork/nginx-web-server/lua-scripts/* /lua-scripts/ &&
-            cp -r /DeathStarBench/socialNetwork/nginx-web-server/pages/* /pages/ &&
-            cp /DeathStarBench/socialNetwork/keys/* /keys/ "]
 
 volumes:
   - name: lua-scripts

@@ -7,9 +7,9 @@ ports:
 container:
   image:
     registry: docker.io
-    repository: yg397
+    repository: jaylenwang
     name: media-frontend
-    tag: xenial
+    tag: xenial-v1
   name: media-frontend
   ports: 
   - containerPort: 8081
@@ -23,21 +23,18 @@ container:
     preStop:
       enabled: true
       exec:
-        command: ["sh", "-c", "nginx -s quit && sleep 5"]
-
-initContainer:
-  image:
-    registry: docker.io
-    repository: alpine
-    name: git
-    tag: latest
-  name: alpine-container
-  volumeMounts:
-  - name: lua-scripts
-    mountPath: /lua-scripts
-  command: "/bin/sh" 
-  args: ["-c", "git clone -b {{ .Values.global.git.branch }} {{ .Values.global.git.repository }} /DeathStarBench &&
-            cp -r /DeathStarBench/socialNetwork/media-frontend/lua-scripts/* /lua-scripts/"]
+        command: 
+        - /bin/sh
+        - -c
+        - |
+          echo 'shutting_down' > /tmp/nginx_status
+          curl -s http://localhost/nginx-health || true
+          # Wait for k8s to redirect traffic (sleep shorter since we're actively rejecting)
+          sleep 1
+          # Then quit
+          nginx -s quit
+          # Wait for nginx to exit
+          while pgrep -x nginx; do sleep 0.1; done
 
 volumes:
   - name: lua-scripts
