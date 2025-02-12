@@ -41,10 +41,7 @@ def load_stats_config():
         
         # List of percentiles to calculate and include in reports
         # 0.50 = median, 0.99 = 99th percentile, 1.0 = max value
-        "PERCENTILES_TO_REPORT": [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0],
-        
-        # New config value for request rate per user (requests per second)
-        "REQUEST_RATE_PER_USER": 1.0
+        "PERCENTILES_TO_REPORT": [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0]
     }
 
     # Try to load config from JSON file
@@ -76,10 +73,7 @@ def load_stats_config():
 
     return default_config
 
-# Load config and get request rate
-app_config = load_stats_config()
-request_rate = app_config["REQUEST_RATE_PER_USER"]
-wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
+load_stats_config()
 
 random.seed(time.time())
 
@@ -230,9 +224,25 @@ def compose_random_text():
     return random_string(length)
 
 def compose_random_user():
-    """Simplified version matching Lua implementation"""
-    max_user_index = 962
-    return str(random.randint(0, max_user_index - 1))
+    user = 0
+    coin = random.random()*100
+    if coin <= 0.4:
+        user = random.choice(user_id_by_follower_num[10])
+    elif coin <= 6.1:
+        user = random.choice(user_id_by_follower_num[30])
+    elif coin <= 16.6:
+        user = random.choice(user_id_by_follower_num[50])
+    elif coin <= 43.8:
+        user = random.choice(user_id_by_follower_num[80])
+    elif coin <= 66.8:
+        user = random.choice(user_id_by_follower_num[100])
+    else:
+        user = random.choice(user_id_by_follower_num[300])
+    return str(user)
+
+mean_iat = 1  # seconds
+
+request_log_file = open('request.log', 'a')
 
 def constant_pacing(wait_time):
     """
@@ -265,7 +275,20 @@ def constant_pacing(wait_time):
     return wait_time_func
 
 class SocialMediaUser(FastHttpUser):
-    wait_time = constant_pacing(wait_time_seconds)
+    wait_time = constant_pacing(1.0)
+
+    # Warning: this will affect percentile calculation 
+    @events.init.add_listener
+    def on_locust_init(environment, **_kwargs):
+        environment.stats.use_response_times_cache = True
+
+    @events.request.add_listener
+    def on_request(response_time, context, **kwargs):
+        request_log_file.write(json.dumps({
+            'time': time.perf_counter(),
+            'latency': response_time / 1e3,
+            'context': context,
+        }) + '\n')
 
     @task(100)
     @tag('compose_post')
