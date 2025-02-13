@@ -7,6 +7,7 @@ import logging
 import time
 import json
 from locust import events
+import urllib3
 
 import locust.stats
 
@@ -44,7 +45,9 @@ def load_stats_config():
         "PERCENTILES_TO_REPORT": [0.50, 0.75, 0.90, 0.99, 0.999, 0.9999, 0.99999, 1.0],
         
         # New config value for request rate per user (requests per second)
-        "REQUEST_RATE_PER_USER": 1.0
+        "REQUEST_RATE_PER_USER": 1.0,
+        # Add new spawn rate config with 100 as default
+        "SPAWN_RATE": 100
     }
 
     # Try to load config from JSON file
@@ -79,11 +82,11 @@ def load_stats_config():
 # Load config and get request rate
 app_config = load_stats_config()
 request_rate = app_config["REQUEST_RATE_PER_USER"]
+spawn_rate = app_config["SPAWN_RATE"]  # Get spawn rate from config
 wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
 
 random.seed(time.time())
 
-import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 script_dir = Path(__file__).resolve().parent
@@ -346,7 +349,7 @@ RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 
 class CustomShape(LoadTestShape):
     time_limit = len(RPS)
-    spawn_rate = 100
+    spawn_rate = spawn_rate
 
     def tick(self):
         run_time = int(self.get_run_time())
