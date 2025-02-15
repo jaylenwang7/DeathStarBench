@@ -47,7 +47,9 @@ def load_stats_config():
         # New config value for request rate per user (requests per second)
         "REQUEST_RATE_PER_USER": 1.0,
         # Add new spawn rate config with 100 as default
-        "SPAWN_RATE": 100
+        "SPAWN_RATE": 100,
+        # Add new random seed config, None means use time.time()
+        "RANDOM_SEED": None
     }
 
     # Try to load config from JSON file
@@ -79,13 +81,32 @@ def load_stats_config():
 
     return default_config
 
+def print_config(config):
+    """Print the current configuration settings"""
+    print("\n=== Locust Configuration ===")
+    print(f"Request Rate Per User: {config['REQUEST_RATE_PER_USER']} requests/second")
+    print(f"Spawn Rate: {config['SPAWN_RATE']} users/second")
+    print(f"Random Seed: {config['RANDOM_SEED'] if config['RANDOM_SEED'] is not None else 'Using time.time()'}")
+    print(f"Console Stats Interval: {config['CONSOLE_STATS_INTERVAL_SEC']} seconds")
+    print(f"History Stats Interval: {config['HISTORY_STATS_INTERVAL_SEC']} seconds")
+    print(f"CSV Stats Interval: {config['CSV_STATS_INTERVAL_SEC']} seconds")
+    print(f"CSV Stats Flush Interval: {config['CSV_STATS_FLUSH_INTERVAL_SEC']} seconds")
+    print(f"Response Time Percentile Window: {config['CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW']} seconds")
+    print(f"Percentiles to Report: {config['PERCENTILES_TO_REPORT']}")
+    print("===========================\n")
+
 # Load config and get request rate
 app_config = load_stats_config()
+print_config(app_config)
 request_rate = app_config["REQUEST_RATE_PER_USER"]
 spawn_rate = app_config["SPAWN_RATE"]  # Get spawn rate from config
 wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
 
-random.seed(time.time())
+# Initialize random seed based on config
+seed = app_config["RANDOM_SEED"]
+if seed is None:
+    seed = time.time()
+random.seed(seed)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
