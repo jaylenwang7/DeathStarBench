@@ -18,6 +18,5 @@ spec:
     {{- end }}
   {{- end }}
   selector:
-    {{- include "hotel-reservation.selectorLabels" . | nindent 4 }}
     service: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}
 {{- end }}
