@@ -63,15 +63,15 @@ spec:
         - {{ $arg | quote }}
         {{- end -}}
         {{- end }}
-        {{- if or (and (hasKey $.Values "readinessProbe") $.Values.readinessProbe.enabled) (and (hasKey $.Values.global "readinessProbe") $.Values.global.readinessProbe.enabled) }}
+        {{- if $.Values.global.readinessProbe.enabled }}
         readinessProbe:
           tcpSocket:
             port: {{ (index .ports 0).containerPort }}
-          initialDelaySeconds: {{ $.Values.readinessProbe.initialDelaySeconds | default $.Values.global.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ $.Values.readinessProbe.periodSeconds | default $.Values.global.readinessProbe.periodSeconds }}
-          timeoutSeconds: {{ $.Values.readinessProbe.timeoutSeconds | default $.Values.global.readinessProbe.timeoutSeconds }}
-          failureThreshold: {{ $.Values.readinessProbe.failureThreshold | default $.Values.global.readinessProbe.failureThreshold }}
-          successThreshold: {{ $.Values.readinessProbe.successThreshold | default $.Values.global.readinessProbe.successThreshold }}
+          initialDelaySeconds: {{ $.Values.global.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.global.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ $.Values.global.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ $.Values.global.readinessProbe.failureThreshold }}
+          successThreshold: {{ $.Values.global.readinessProbe.successThreshold }}
         {{- end }}
         {{- if .resources }}
         resources:
