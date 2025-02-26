@@ -20,7 +20,6 @@ spec:
     targetPort: {{ .targetPort }}
   {{- end }}
   selector:
-    {{- include "hotel-reservation.selectorLabels" . | nindent 4 }}
     service: {{ .Values.name }}-{{ $rangeItem }}-{{ include "hotel-reservation.fullname" . }}
 {{- end }}
 {{- end }}
