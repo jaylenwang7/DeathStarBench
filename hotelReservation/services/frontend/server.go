@@ -1,23 +1,33 @@
 package frontend
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"strconv"
 
-	recommendation "github.com/harlow/go-micro-services/services/recommendation/proto"
-	reservation "github.com/harlow/go-micro-services/services/reservation/proto"
-	user "github.com/harlow/go-micro-services/services/user/proto"
-	"github.com/rs/zerolog/log"
-
-	"github.com/harlow/go-micro-services/dialer"
-	"github.com/harlow/go-micro-services/registry"
-	profile "github.com/harlow/go-micro-services/services/profile/proto"
-	search "github.com/harlow/go-micro-services/services/search/proto"
-	"github.com/harlow/go-micro-services/tls"
-	"github.com/harlow/go-micro-services/tracing"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/dialer"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/registry"
+	attractions "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/attractions/proto"
+	profile "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/profile/proto"
+	recommendation "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/recommendation/proto"
+	reservation "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/reservation/proto"
+	review "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/review/proto"
+	search "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/search/proto"
+	user "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/user/proto"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tls"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tracing"
+	_ "github.com/mbobakov/grpc-consul-resolver"
 	"github.com/opentracing/opentracing-go"
+	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+)
+
+var (
+	//go:embed static/*
+	content embed.FS
 )
 
 // Server implements frontend service
@@ -26,17 +36,28 @@ type Server struct {
 	profileClient        profile.ProfileClient
 	recommendationClient recommendation.RecommendationClient
 	userClient           user.UserClient
+	reviewClient         review.ReviewClient
+	attractionsClient    attractions.AttractionsClient
 	reservationClient    reservation.ReservationClient
-	IpAddr               string
-	Port                 int
-	Tracer               opentracing.Tracer
-	Registry             *registry.Client
+
+	KnativeDns string
+	IpAddr     string
+	ConsulAddr string
+	Port       int
+	Tracer     opentracing.Tracer
+	Registry   *registry.Client
 }
 
 // Run the server
 func (s *Server) Run() error {
 	if s.Port == 0 {
 		return fmt.Errorf("Server port must be set")
+	}
+
+	log.Info().Msg("Loading static content...")
+	staticContent, err := fs.Sub(content, "static")
+	if err != nil {
+		return err
 	}
 
 	log.Info().Msg("Initializing gRPC clients...")
@@ -59,14 +80,27 @@ func (s *Server) Run() error {
 	if err := s.initReservation("srv-reservation"); err != nil {
 		return err
 	}
-	log.Info().Msg("Successfull")
+
+	if err := s.initReviewClient("srv-review"); err != nil {
+		return err
+	}
+
+	if err := s.initAttractionsClient("srv-attractions"); err != nil {
+		return err
+	}
+
+	log.Info().Msg("Successful")
 
 	log.Trace().Msg("frontend before mux")
 	mux := tracing.NewServeMux(s.Tracer)
-	mux.Handle("/", http.FileServer(http.Dir("services/frontend/static")))
+	mux.Handle("/", http.FileServer(http.FS(staticContent)))
 	mux.Handle("/hotels", http.HandlerFunc(s.searchHandler))
 	mux.Handle("/recommendations", http.HandlerFunc(s.recommendHandler))
 	mux.Handle("/user", http.HandlerFunc(s.userHandler))
+	mux.Handle("/review", http.HandlerFunc(s.reviewHandler))
+	mux.Handle("/restaurants", http.HandlerFunc(s.restaurantHandler))
+	mux.Handle("/museums", http.HandlerFunc(s.museumHandler))
+	mux.Handle("/cinema", http.HandlerFunc(s.cinemaHandler))
 	mux.Handle("/reservation", http.HandlerFunc(s.reservationHandler))
 
 	log.Trace().Msg("frontend starts serving")
@@ -81,12 +115,21 @@ func (s *Server) Run() error {
 		srv.TLSConfig = tlsconfig
 		return srv.ListenAndServeTLS("x509/server_cert.pem", "x509/server_key.pem")
 	} else {
-		log.Info().Msg("Serving https")
+		log.Info().Msg("Serving http")
 		return srv.ListenAndServe()
 	}
 }
 
 func (s *Server) initSearchClient(name string) error {
+	conn, err := s.getGprcConn(name)
+	if err != nil {
+		return fmt.Errorf("dialer error: %v", err)
+	}
+	s.searchClient = search.NewSearchClient(conn)
+	return nil
+}
+
+func (s *Server) initReviewClient(name string) error {
 	conn, err := dialer.Dial(
 		name,
 		dialer.WithTracer(s.Tracer),
@@ -95,16 +138,25 @@ func (s *Server) initSearchClient(name string) error {
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
 	}
-	s.searchClient = search.NewSearchClient(conn)
+	s.reviewClient = review.NewReviewClient(conn)
 	return nil
 }
 
-func (s *Server) initProfileClient(name string) error {
+func (s *Server) initAttractionsClient(name string) error {
 	conn, err := dialer.Dial(
 		name,
 		dialer.WithTracer(s.Tracer),
 		dialer.WithBalancer(s.Registry.Client),
 	)
+	if err != nil {
+		return fmt.Errorf("dialer error: %v", err)
+	}
+	s.attractionsClient = attractions.NewAttractionsClient(conn)
+	return nil
+}
+
+func (s *Server) initProfileClient(name string) error {
+	conn, err := s.getGprcConn(name)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
 	}
@@ -113,11 +165,7 @@ func (s *Server) initProfileClient(name string) error {
 }
 
 func (s *Server) initRecommendationClient(name string) error {
-	conn, err := dialer.Dial(
-		name,
-		dialer.WithTracer(s.Tracer),
-		dialer.WithBalancer(s.Registry.Client),
-	)
+	conn, err := s.getGprcConn(name)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
 	}
@@ -126,11 +174,7 @@ func (s *Server) initRecommendationClient(name string) error {
 }
 
 func (s *Server) initUserClient(name string) error {
-	conn, err := dialer.Dial(
-		name,
-		dialer.WithTracer(s.Tracer),
-		dialer.WithBalancer(s.Registry.Client),
-	)
+	conn, err := s.getGprcConn(name)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
 	}
@@ -139,16 +183,30 @@ func (s *Server) initUserClient(name string) error {
 }
 
 func (s *Server) initReservation(name string) error {
-	conn, err := dialer.Dial(
-		name,
-		dialer.WithTracer(s.Tracer),
-		dialer.WithBalancer(s.Registry.Client),
-	)
+	conn, err := s.getGprcConn(name)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
 	}
 	s.reservationClient = reservation.NewReservationClient(conn)
 	return nil
+}
+
+func (s *Server) getGprcConn(name string) (*grpc.ClientConn, error) {
+	log.Info().Msg("get Grpc conn is :")
+	log.Info().Msg(s.KnativeDns)
+	log.Info().Msg(fmt.Sprintf("%s.%s", name, s.KnativeDns))
+
+	if s.KnativeDns != "" {
+		return dialer.Dial(
+			fmt.Sprintf("consul://%s/%s.%s", s.ConsulAddr, name, s.KnativeDns),
+			dialer.WithTracer(s.Tracer))
+	} else {
+		return dialer.Dial(
+			fmt.Sprintf("consul://%s/%s", s.ConsulAddr, name),
+			dialer.WithTracer(s.Tracer),
+			dialer.WithBalancer(s.Registry.Client),
+		)
+	}
 }
 
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
@@ -282,6 +340,214 @@ func (s *Server) recommendHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(geoJSONResponse(profileResp.Hotels))
+}
+
+func (s *Server) reviewHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	ctx := r.Context()
+
+	username, password := r.URL.Query().Get("username"), r.URL.Query().Get("password")
+	if username == "" || password == "" {
+		http.Error(w, "Please specify username and password", http.StatusBadRequest)
+		return
+	}
+
+	// Check username and password
+	recResp, err := s.userClient.CheckUser(ctx, &user.Request{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	str := "Logged-in successfully!"
+	if recResp.Correct == false {
+		str = "Failed. Please check your username and password. "
+	}
+
+	hotelId := r.URL.Query().Get("hotelId")
+	if hotelId == "" {
+		http.Error(w, "Please specify hotelId params", http.StatusBadRequest)
+		return
+	}
+
+	revInput := review.Request{HotelId: hotelId}
+
+	revResp, err := s.reviewClient.GetReviews(ctx, &revInput)
+
+	str = "Have reviews = " + strconv.Itoa(len(revResp.Reviews))
+	if len(revResp.Reviews) == 0 {
+		str = "Failed. No Reviews. "
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := map[string]interface{}{
+		"message": str,
+	}
+
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) restaurantHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	ctx := r.Context()
+
+	username, password := r.URL.Query().Get("username"), r.URL.Query().Get("password")
+	if username == "" || password == "" {
+		http.Error(w, "Please specify username and password", http.StatusBadRequest)
+		return
+	}
+
+	// Check username and password
+	recResp, err := s.userClient.CheckUser(ctx, &user.Request{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	str := "Logged-in successfully!"
+	if recResp.Correct == false {
+		str = "Failed. Please check your username and password. "
+	}
+
+	hotelId := r.URL.Query().Get("hotelId")
+	if hotelId == "" {
+		http.Error(w, "Please specify hotelId params", http.StatusBadRequest)
+		return
+	}
+
+	revInput := attractions.Request{HotelId: hotelId}
+
+	revResp, err := s.attractionsClient.NearbyRest(ctx, &revInput)
+
+	str = "Have restaurants = " + strconv.Itoa(len(revResp.AttractionIds))
+	if len(revResp.AttractionIds) == 0 {
+		str = "Failed. No Restaurants. "
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := map[string]interface{}{
+		"message": str,
+	}
+
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) museumHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	ctx := r.Context()
+
+	username, password := r.URL.Query().Get("username"), r.URL.Query().Get("password")
+	if username == "" || password == "" {
+		http.Error(w, "Please specify username and password", http.StatusBadRequest)
+		return
+	}
+
+	// Check username and password
+	recResp, err := s.userClient.CheckUser(ctx, &user.Request{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	str := "Logged-in successfully!"
+	if recResp.Correct == false {
+		str = "Failed. Please check your username and password. "
+	}
+
+	hotelId := r.URL.Query().Get("hotelId")
+	if hotelId == "" {
+		http.Error(w, "Please specify hotelId params", http.StatusBadRequest)
+		return
+	}
+
+	revInput := attractions.Request{HotelId: hotelId}
+
+	revResp, err := s.attractionsClient.NearbyMus(ctx, &revInput)
+
+	str = "Have museums = " + strconv.Itoa(len(revResp.AttractionIds))
+	if len(revResp.AttractionIds) == 0 {
+		str = "Failed. No Museums. "
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := map[string]interface{}{
+		"message": str,
+	}
+
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) cinemaHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	ctx := r.Context()
+
+	username, password := r.URL.Query().Get("username"), r.URL.Query().Get("password")
+	if username == "" || password == "" {
+		http.Error(w, "Please specify username and password", http.StatusBadRequest)
+		return
+	}
+
+	// Check username and password
+	recResp, err := s.userClient.CheckUser(ctx, &user.Request{
+		Username: username,
+		Password: password,
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	str := "Logged-in successfully!"
+	if recResp.Correct == false {
+		str = "Failed. Please check your username and password. "
+	}
+
+	hotelId := r.URL.Query().Get("hotelId")
+	if hotelId == "" {
+		http.Error(w, "Please specify hotelId params", http.StatusBadRequest)
+		return
+	}
+
+	revInput := attractions.Request{HotelId: hotelId}
+
+	revResp, err := s.attractionsClient.NearbyCinema(ctx, &revInput)
+
+	str = "Have cinemas = " + strconv.Itoa(len(revResp.AttractionIds))
+	if len(revResp.AttractionIds) == 0 {
+		str = "Failed. No Cinemas. "
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	res := map[string]interface{}{
+		"message": str,
+	}
+
+	json.NewEncoder(w).Encode(res)
 }
 
 func (s *Server) userHandler(w http.ResponseWriter, r *http.Request) {

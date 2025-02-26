@@ -72,7 +72,7 @@ spec:
       {{- end }}
       volumes:
       - name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-path
-	{{- if $.Values.global.mongodb.persistentVolume.enabled }}
+        {{- if $.Values.global.mongodb.persistentVolume.enabled }}
         persistentVolumeClaim:
           claimName: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-pvc
         {{- else }}
