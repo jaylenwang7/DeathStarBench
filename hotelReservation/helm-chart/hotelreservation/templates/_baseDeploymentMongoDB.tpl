@@ -31,37 +31,37 @@ spec:
       {{- end }}
     spec:
       containers:
-      {{- with .Values.container }}
-      - name: "{{ .name }}"
-        image: {{ .dockerRegistry | default $.Values.global.dockerRegistry }}/{{ .image }}:{{ .imageVersion | default $.Values.global.defaultImageVersion }}
-        imagePullPolicy: {{ .imagePullPolicy | default $.Values.global.imagePullPolicy }}
+      - name: "mongodb"
+        image: jaylenwang/hotel-mongodb:5.0
+        imagePullPolicy: {{ .Values.container.imagePullPolicy | default $.Values.global.imagePullPolicy }}
+        env:
+        - name: DB_TYPE
+          value: "{{ $.Values.dbType | default (trimPrefix "mongodb-" $.Values.name) }}-db"
         ports:
-        {{- range $cport := .ports }}
+        {{- range $cport := .Values.container.ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }}
-        {{- if .command}}
-        command:
-        - {{ .command }}
-        {{- end -}}
-        {{- if .args}}
-        args:
-        {{- range $arg := .args}}
-        - {{ $arg }}
-        {{- end -}}
-        {{- end }}
-        {{- if $.Values.global.readinessProbe.enabled }}
         readinessProbe:
-          tcpSocket:
-            port: {{ (index .ports 0).containerPort }}
-          initialDelaySeconds: {{ $.Values.global.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ $.Values.global.readinessProbe.periodSeconds }}
-          timeoutSeconds: {{ $.Values.global.readinessProbe.timeoutSeconds }}
-          failureThreshold: {{ $.Values.global.readinessProbe.failureThreshold }}
-          successThreshold: {{ $.Values.global.readinessProbe.successThreshold }}
-        {{- end }}
-        {{- if .resources }}
+          exec:
+            command:
+            - bash
+            - -c
+            - 'mongo --eval "db.getSiblingDB(''{{ $.Values.dbType | default (trimPrefix "mongodb-" $.Values.name) }}-db'').stats().ok" | grep -q "^1"'
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 10
+        livenessProbe:
+          exec:
+            command:
+            - mongo
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        {{- if .Values.container.resources }}
         resources:
-          {{ tpl .resources $ | nindent 10 | trim }}
+          {{ tpl .Values.container.resources $ | nindent 10 | trim }}
         {{- else if hasKey $.Values.global "resources" }}
         resources:
           {{ tpl $.Values.global.resources $ | nindent 10 | trim }}
@@ -69,7 +69,6 @@ spec:
         volumeMounts:
         - mountPath: /data/db
           name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-path
-      {{- end }}
       volumes:
       - name: {{ .Values.name }}-{{ include "hotel-reservation.fullname" . }}-path
         {{- if $.Values.global.mongodb.persistentVolume.enabled }}
