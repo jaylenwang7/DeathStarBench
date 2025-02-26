@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: "mongodb"
-        image: jaylenwang/hotel-mongodb:5.0
+        image: jaylenwang/hotel-mongodb:5.0-amd64
         imagePullPolicy: {{ .Values.container.imagePullPolicy | default $.Values.global.imagePullPolicy }}
         env:
         - name: DB_TYPE
