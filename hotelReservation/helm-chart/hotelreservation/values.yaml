@@ -9,6 +9,13 @@ global:
   dockerRegistry: docker.io
   defaultImageVersion: latest
   serviceDnsDomain: "cluster.local"
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 2
+    periodSeconds: 1
+    timeoutSeconds: 2
+    failureThreshold: 10
+    successThreshold: 1
   services:
     environments:
       # TLS enablement
