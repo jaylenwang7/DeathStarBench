@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	consul "github.com/hashicorp/consul/api"
 	"github.com/rs/zerolog/log"
+)
+
+// Default retry settings
+const (
+	defaultMaxRetries = 5
+	initialBackoff    = 1 * time.Second
+	maxBackoff        = 30 * time.Second
 )
 
 // NewClient returns a new Client with connection to consul
@@ -82,17 +90,89 @@ func (c *Client) Register(name string, id string, ip string, port int) error {
 			return err
 		}
 	}
+	
 	reg := &consul.AgentServiceRegistration{
 		ID:      id,
 		Name:    name,
 		Port:    port,
 		Address: ip,
 	}
-	log.Info().Msgf("Trying to register service [ name: %s, id: %s, address: %s:%d ]", name, id, ip, port)
-	return c.Agent().ServiceRegister(reg)
+	
+	var err error
+	backoff := initialBackoff
+	
+	for attempt := 1; attempt <= defaultMaxRetries; attempt++ {
+		log.Info().Msgf("Registering service [name: %s, id: %s, address: %s:%d] (attempt %d/%d)", 
+			name, id, ip, port, attempt, defaultMaxRetries)
+		
+		err = c.Agent().ServiceRegister(reg)
+		if err == nil {
+			log.Info().Msg("Successfully registered service with Consul")
+			return nil
+		}
+		
+		// If this is the last attempt, return the error
+		if attempt == defaultMaxRetries {
+			return fmt.Errorf("failed to register service after %d attempts: %v", defaultMaxRetries, err)
+		}
+		
+		log.Warn().Msgf("Failed to register with Consul: %v. Retrying in %v...", err, backoff)
+		
+		// Sleep with backoff before retrying
+		time.Sleep(backoff)
+		
+		// Exponential backoff with cap
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+	
+	// This should never be reached due to the return in the loop
+	return err
 }
 
 // Deregister removes the service address from registry
 func (c *Client) Deregister(id string) error {
-	return c.Agent().ServiceDeregister(id)
+	var err error
+	backoff := initialBackoff
+	
+	for attempt := 1; attempt <= defaultMaxRetries; attempt++ {
+		log.Info().Msgf("Deregistering service [id: %s] (attempt %d/%d)", 
+			id, attempt, defaultMaxRetries)
+		
+		err = c.Agent().ServiceDeregister(id)
+		if err == nil {
+			log.Info().Msg("Successfully deregistered service from Consul")
+			return nil
+		}
+		
+		// If this is the last attempt, return the error
+		if attempt == defaultMaxRetries {
+			// For deregistration, we'll just log the error rather than returning it
+			// as deregistration failures are less critical
+			log.Error().Msgf("Failed to deregister service after %d attempts: %v", defaultMaxRetries, err)
+			return nil
+		}
+		
+		log.Warn().Msgf("Failed to deregister from Consul: %v. Retrying in %v...", err, backoff)
+		
+		// Sleep with backoff before retrying
+		time.Sleep(backoff)
+		
+		// Exponential backoff with cap
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+	}
+	
+	// This should never be reached due to the return in the loop
+	return err
+}
+
+// IsConsulReachable checks if Consul is reachable
+func (c *Client) IsConsulReachable() bool {
+	_, err := c.Agent().Self()
+	return err == nil
 }
