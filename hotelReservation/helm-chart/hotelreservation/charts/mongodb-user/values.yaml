@@ -9,9 +9,9 @@ ports:
 container:
   image:
     registry: ~
-    repository: mongo
-    name: mongo
-    tag: 5.0
+    repository: jaylenwang
+    name: hotel-mongodb
+    tag: 5.0-v3
   name: hotel-reserv-user-mongo
   ports:
   - containerPort: 27017
