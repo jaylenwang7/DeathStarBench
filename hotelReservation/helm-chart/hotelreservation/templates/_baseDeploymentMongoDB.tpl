@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
       - name: "mongodb"
-        image: jaylenwang/hotel-mongodb:5.0-v2
+        image: {{ .Values.container.image.registry | default $.Values.global.dockerRegistry }}/{{ .Values.container.image.repository }}/{{ .Values.container.image.name }}:{{ .Values.container.image.tag | default $.Values.global.defaultImageVersion }}
         imagePullPolicy: {{ .Values.container.imagePullPolicy | default $.Values.global.imagePullPolicy }}
         env:
         - name: DB_TYPE

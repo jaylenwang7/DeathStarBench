@@ -7,6 +7,8 @@ global:
   restartPolicy: Always
   serviceType: ClusterIP
   dockerRegistry: docker.io
+  repository: jaylenwang
+  imageName: hotel-reservation
   defaultImageVersion: latest
   serviceDnsDomain: "cluster.local"
   readinessProbe:

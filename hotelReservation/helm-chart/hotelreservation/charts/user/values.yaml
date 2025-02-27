@@ -6,7 +6,11 @@ ports:
  
 container:
   command: user
-  image: deathstarbench/hotel-reservation
+  image:
+    registry: ~
+    repository: ~
+    name: ~
+    tag: ~
   name: hotel-reserv-user
   ports:
   - containerPort: 8086

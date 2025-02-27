@@ -5,8 +5,11 @@ ports:
     targetPort: 11211
  
 container:
-  image: memcached
-  imageVersion: latest
+  image:
+    registry: ~
+    repository: library
+    name: memcached
+    tag: 1.6.37
   name: hotel-reserv-reservation-mmc
   ports:
   - containerPort: 11211

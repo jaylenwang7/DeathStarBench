@@ -24,8 +24,11 @@ ports:
     targetPort: 6832
 
 container:
-  image: jaegertracing/all-in-one
-  imageVersion: 1.21.0
+  image:
+    registry: ~
+    repository: jaegertracing
+    name: all-in-one
+    tag: 1.21.0
   name: hotel-reserv-jaeger
   environments:
     - name: MEMORY_MAX_TRACES

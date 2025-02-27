@@ -8,7 +8,11 @@ ports:
 
 container:
   command: frontend
-  image: deathstarbench/hotel-reservation
+  image:
+    registry: ~
+    repository: ~
+    name: ~
+    tag: ~
   name: hotel-reserv-frontend
   ports:
   - containerPort: 5000

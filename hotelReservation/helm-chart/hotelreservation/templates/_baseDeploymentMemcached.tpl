@@ -38,7 +38,7 @@ spec:
       containers:
       {{- with .Values.container }}
       - name: "{{ .name }}"
-        image: {{ .dockerRegistry | default $.Values.global.dockerRegistry }}/{{ .image }}:{{ .imageVersion | default $.Values.global.defaultImageVersion }}
+        image: {{ .image.registry | default $.Values.global.dockerRegistry }}/{{ .image.repository | default "library" }}/{{ .image.name }}:{{ .image.tag | default $.Values.global.defaultImageVersion }}
         imagePullPolicy: {{ .imagePullPolicy | default $.Values.global.imagePullPolicy }}
         ports:
         {{- range $cport := .ports }}

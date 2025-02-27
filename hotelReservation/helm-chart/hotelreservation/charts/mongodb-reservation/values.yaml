@@ -7,8 +7,11 @@ ports:
     targetPort: 27017
 
 container:
-  image: mongo
-  imageVersion: 5.0
+  image:
+    registry: ~
+    repository: mongo
+    name: mongo
+    tag: 5.0
   name: hotel-reserv-reservation-mongo
   ports:
   - containerPort: 27017
