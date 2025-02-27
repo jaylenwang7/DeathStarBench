@@ -27,6 +27,9 @@ container:
   image: jaegertracing/all-in-one
   imageVersion: 1.21.0
   name: hotel-reserv-jaeger
+  environments:
+    - name: MEMORY_MAX_TRACES
+      value: "10000"
   ports:
   - containerPort: 14269
   - containerPort: 5778
