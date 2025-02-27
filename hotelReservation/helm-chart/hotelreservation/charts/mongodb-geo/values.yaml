@@ -11,7 +11,7 @@ container:
     registry: ~
     repository: jaylenwang
     name: hotel-mongodb
-    tag: 5.0-v2
+    tag: 5.0-v3
   name: hotel-reserv-geo-mongo
   ports:
   - containerPort: 27017
