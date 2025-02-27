@@ -17,12 +17,12 @@ case "$DB_TYPE" in
             "number": 1
         });
         db.number.insertMany([
-            {"hotelId": "1", "number": 200},
-            {"hotelId": "2", "number": 200},
-            {"hotelId": "3", "number": 200},
-            {"hotelId": "4", "number": 200},
-            {"hotelId": "5", "number": 200},
-            {"hotelId": "6", "number": 200}
+            {"hotelId": "1", "numberOfRoom": 200},
+            {"hotelId": "2", "numberOfRoom": 200},
+            {"hotelId": "3", "numberOfRoom": 200},
+            {"hotelId": "4", "numberOfRoom": 200},
+            {"hotelId": "5", "numberOfRoom": 200},
+            {"hotelId": "6", "numberOfRoom": 200}
         ]);
         
         // Add more hotel rooms
@@ -33,7 +33,7 @@ case "$DB_TYPE" in
             if (i % 3 == 1) roomNumber = 300;
             else if (i % 3 == 2) roomNumber = 250;
             
-            moreRooms.push({"hotelId": hotelID, "number": roomNumber});
+            moreRooms.push({"hotelId": hotelID, "numberOfRoom": roomNumber});
         }
         
         if (moreRooms.length > 0) {

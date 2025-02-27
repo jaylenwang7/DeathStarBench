@@ -35,7 +35,7 @@ spec:
         - name: {{ $e.name }}
           value: "{{ (tpl ($e.value | toString) $) }}"
         {{ end -}}
-	{{ end -}}
+	      {{ end -}}
         {{- if .command}}
         command:
         - {{ .command }}
