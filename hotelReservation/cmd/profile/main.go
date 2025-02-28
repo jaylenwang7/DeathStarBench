@@ -40,7 +40,8 @@ func main() {
 	log.Info().Msgf("Read profile memcashed address: %v", result["ProfileMemcAddress"])
 	log.Info().Msg("Initializing Memcashed client...")
 	memcClient := tune.NewMemCClient2(result["ProfileMemcAddress"])
-	log.Info().Msg("Success")
+	log.Info().Msg("Successfully initialized Memcashed client")
+	defer memcClient.Close()
 
 	servPort, _ := strconv.Atoi(result["ProfilePort"])
 	servIP := result["ProfileIP"]

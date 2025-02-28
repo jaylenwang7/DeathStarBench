@@ -9,7 +9,7 @@ global:
   dockerRegistry: docker.io
   repository: jaylenwang
   imageName: hotel-reservation
-  defaultImageVersion: test-v1
+  defaultImageVersion: v4
   serviceDnsDomain: "cluster.local"
   readinessProbe:
     enabled: true
