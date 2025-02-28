@@ -28,7 +28,7 @@ import (
 
 	// "strings"
 
-	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tune"
 )
 
 const name = "srv-review"
@@ -42,7 +42,7 @@ type Server struct {
 	IpAddr      string
 	MongoClient *mongo.Client
 	Registry    *registry.Client
-	MemcClient  *memcache.Client
+	MemcClient  *tune.ResilientMemcClient
 	uuid        string
 }
 
