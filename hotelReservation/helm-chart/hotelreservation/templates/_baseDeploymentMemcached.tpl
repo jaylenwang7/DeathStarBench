@@ -80,6 +80,11 @@ spec:
         resources:
           {{ tpl $.Values.global.resources $ | nindent 10 | trim }}
         {{- end }}
+        {{- if .lifecycle }}
+        lifecycle: {{- toYaml .lifecycle | nindent 10 }}
+        {{- else if hasKey $.Values.global "lifecycle" }}
+        lifecycle: {{- toYaml $.Values.global.lifecycle | nindent 10 }}
+        {{- end }}
       {{- end -}}
       {{- if hasKey .Values "topologySpreadConstraints" }}
       topologySpreadConstraints:

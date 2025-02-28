@@ -47,3 +47,7 @@ global:
       pvprovisioner:
         enabled: false
         storageClassName: ceph-fs   # optional
+  lifecycle:
+    preStop:
+      exec:
+        command: ["sh", "-c", "sleep 5"]

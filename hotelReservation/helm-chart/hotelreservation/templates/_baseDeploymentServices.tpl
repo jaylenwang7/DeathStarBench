@@ -74,6 +74,11 @@ spec:
           subPath: {{ $configMap.name }}
         {{- end }}
         {{- end }}
+        {{- if .lifecycle }}
+        lifecycle: {{- toYaml .lifecycle | nindent 10 }}
+        {{- else if hasKey $.Values.global "lifecycle" }}
+        lifecycle: {{- toYaml $.Values.global.lifecycle | nindent 10 }}
+        {{- end }}
       {{- end -}}
       {{- if $.Values.configMaps }}
       volumes:

@@ -66,6 +66,11 @@ spec:
         resources:
           {{ tpl $.Values.global.resources $ | nindent 10 | trim }}
         {{- end }}
+        {{- if .Values.container.lifecycle }}
+        lifecycle: {{- toYaml .Values.container.lifecycle | nindent 10 }}
+        {{- else if hasKey $.Values.global "lifecycle" }}
+        lifecycle: {{- toYaml $.Values.global.lifecycle | nindent 10 }}
+        {{- end }}
         volumeMounts:
         - mountPath: /data/db
           name: {{ $.Values.name }}-{{ include "hotel-reservation.fullname" $ }}-path
