@@ -65,13 +65,13 @@ spec:
         {{- end }}
         {{- if $.Values.global.readinessProbe.enabled }}
         readinessProbe:
-          exec:
-            command:
-            - sh
-            - -c
-            - "echo stats | nc localhost 11211 | grep -q 'STAT uptime'"
-          initialDelaySeconds: 5
-          periodSeconds: 3
+          tcpSocket:
+            port: {{ (index .ports 0).containerPort }}
+          initialDelaySeconds: {{ $.Values.global.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.global.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ $.Values.global.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ $.Values.global.readinessProbe.failureThreshold }}
+          successThreshold: {{ $.Values.global.readinessProbe.successThreshold }}
         {{- end }}
         {{- if .resources }}
         resources:
