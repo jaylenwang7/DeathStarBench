@@ -12,6 +12,7 @@ import (
 	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/registry"
 	pb "github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/services/profile/proto"
 	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tls"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tune"
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
@@ -35,7 +36,7 @@ type Server struct {
 	IpAddr      string
 	MongoClient *mongo.Client
 	Registry    *registry.Client
-	MemcClient  *memcache.Client
+	MemcClient  *tune.ResilientMemcClient
 }
 
 // Run starts the server
@@ -113,8 +114,15 @@ func (s *Server) GetProfiles(ctx context.Context, req *pb.Request) (*pb.Result, 
 	hotels := make([]*pb.Hotel, 0)
 
 	if err != nil && err != memcache.ErrCacheMiss {
-		log.Panic().Msgf("Tried to get hotelIds [%v], but got memmcached error = %s", hotelIds, err)
-	} else {
+		log.Error().Msgf("Memcached error getting profiles for hotels %v: %v. Falling back to database", hotelIds, err)
+		// Treat all as cache miss
+		resMap = make(map[string]*memcache.Item)
+		profileMap = make(map[string]struct{})
+		for _, hotelId := range req.HotelIds {
+			profileMap[hotelId] = struct{}{}
+		}
+	} else if err == nil {
+		// Process cache hits
 		for hotelId, item := range resMap {
 			profileStr := string(item.Value)
 			log.Trace().Msgf("memc hit with %v", profileStr)
@@ -124,38 +132,39 @@ func (s *Server) GetProfiles(ctx context.Context, req *pb.Request) (*pb.Result, 
 			hotels = append(hotels, hotelProf)
 			delete(profileMap, hotelId)
 		}
+	}
 
-		wg.Add(len(profileMap))
-		for hotelId := range profileMap {
-			go func(hotelId string) {
-				var hotelProf *pb.Hotel
+	wg.Add(len(profileMap))
+	for hotelId := range profileMap {
+		go func(hotelId string) {
+			defer wg.Done()
+			var hotelProf *pb.Hotel
 
-				collection := s.MongoClient.Database("profile-db").Collection("hotels")
+			collection := s.MongoClient.Database("profile-db").Collection("hotels")
 
-				mongoSpan, _ := opentracing.StartSpanFromContext(ctx, "mongo_profile")
-				mongoSpan.SetTag("span.kind", "client")
-				err := collection.FindOne(context.TODO(), bson.D{{"id", hotelId}}).Decode(&hotelProf)
-				mongoSpan.Finish()
+			mongoSpan, _ := opentracing.StartSpanFromContext(ctx, "mongo_profile")
+			mongoSpan.SetTag("span.kind", "client")
+			err := collection.FindOne(context.TODO(), bson.D{{"id", hotelId}}).Decode(&hotelProf)
+			mongoSpan.Finish()
 
-				if err != nil {
-					log.Error().Msgf("Failed get hotels data: ", err)
-				}
+			if err != nil {
+				log.Error().Msgf("Failed to get hotel data for ID %s: %v", hotelId, err)
+				return
+			}
 
-				mutex.Lock()
-				hotels = append(hotels, hotelProf)
-				mutex.Unlock()
+			mutex.Lock()
+			hotels = append(hotels, hotelProf)
+			mutex.Unlock()
 
-				profJson, err := json.Marshal(hotelProf)
-				if err != nil {
-					log.Error().Msgf("Failed to marshal hotel [id: %v] with err:", hotelProf.Id, err)
-				}
-				memcStr := string(profJson)
+			profJson, err := json.Marshal(hotelProf)
+			if err != nil {
+				log.Error().Msgf("Failed to marshal hotel [id: %v] with err:", hotelProf.Id, err)
+			}
+			memcStr := string(profJson)
 
-				// write to memcached
-				go s.MemcClient.Set(&memcache.Item{Key: hotelId, Value: []byte(memcStr)})
-				defer wg.Done()
-			}(hotelId)
-		}
+			// write to memcached
+			go s.MemcClient.Set(&memcache.Item{Key: hotelId, Value: []byte(memcStr)})
+		}(hotelId)
 	}
 	wg.Wait()
 

@@ -21,6 +21,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/tune"
 )
 
 const name = "srv-reservation"
@@ -36,7 +37,7 @@ type Server struct {
 	IpAddr      string
 	MongoClient *mongo.Client
 	Registry    *registry.Client
-	MemcClient  *memcache.Client
+	MemcClient  *tune.ResilientMemcClient
 }
 
 // Run starts the server
@@ -149,7 +150,31 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
 
 		} else {
-			log.Panic().Msgf("Tried to get memc_key [%v], but got memmcached error = %s", memc_key, err)
+			// Log the error but don't panic
+			log.Error().Msgf("Memcached error for key [%v]: %s. Falling back to database", memc_key, err)
+			
+			// Fall back to database query (similar to the memcached miss case)
+			var reserve []reservation
+		
+			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
+			curr, err := resCollection.Find(context.TODO(), filter)
+			if err != nil {
+				log.Error().Msgf("Failed to get reservation data: %v", err)
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			
+			err = curr.All(context.TODO(), &reserve)
+			if err != nil {
+				log.Error().Msgf("Failed to decode reservation data: %v", err)
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			
+			count := 0
+			for _, r := range reserve {
+				count += r.Number
+			}
+			
+			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
 		}
 
 		// check capacity
@@ -173,7 +198,17 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 			// write to memcache
 			s.MemcClient.Set(&memcache.Item{Key: memc_cap_key, Value: []byte(strconv.Itoa(hotel_cap))})
 		} else {
-			log.Panic().Msgf("Tried to get memc_cap_key [%v], but got memmcached error = %s", memc_cap_key, err)
+			log.Error().Msgf("Memcached error for capacity key [%v]: %s. Falling back to database", memc_cap_key, err)
+			
+			// Fall back to database query for capacity
+			var num number
+			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
+			if err != nil {
+				log.Error().Msgf("Failed to find hotel capacity for hotelId [%v]: %v", hotelId, err)
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			
+			hotel_cap = int(num.Number)
 		}
 
 		if count+int(req.RoomNumber) > hotel_cap {
