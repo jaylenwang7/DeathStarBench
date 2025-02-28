@@ -222,7 +222,11 @@ func (r *ResilientMemcClient) GetMulti(keys []string) (map[string]*memcache.Item
 			time.Sleep(retryDelay)
 		}
 		
-		items = r.client.GetMulti(keys)
+		items, err = r.client.GetMulti(keys)
+		if err != nil {
+			log.Error().Err(err).Msgf("Memcached GetMulti error for %d keys", len(keys))
+			continue
+		}
 		
 		// If we got some items or were looking for none, consider it successful
 		if len(items) > 0 || len(keys) == 0 {
