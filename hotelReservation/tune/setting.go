@@ -204,6 +204,22 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
     return nil, err
 }
 
+func (r *ResilientMemcClient) Close() error {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    
+    if r.client != nil {
+        err := r.client.Close()
+        if err != nil {
+            log.Error().Err(err).Msg("Error closing memcached client")
+            return err
+        }
+    }
+    
+    log.Info().Msg("Closed memcached client connections")
+    return nil
+}
+
 // GetMulti retrieves multiple memcached items with retry logic
 func (r *ResilientMemcClient) GetMulti(keys []string) (map[string]*memcache.Item, error) {
 	retryAttempts, retryDelay := GetOperationRetrySettings()
