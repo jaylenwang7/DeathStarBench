@@ -142,12 +142,30 @@ func GetOperationRetrySettings() (attempts int, delay time.Duration) {
     return
 }
 
+var resetLimiter = make(chan struct{}, 5)
+
 // resetConnection resets the memcached client connection
 func (r *ResilientMemcClient) resetConnection() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	log.Warn().Msg("Resetting memcached connection...")
+
+	select {
+    case resetLimiter <- struct{}{}:
+        defer func() { <-resetLimiter }() // Release when done
+    case <-time.After(100 * time.Millisecond):
+        // Skip if too many resets happening
+        log.Warn().Msg("Skipping connection reset - too many concurrent resets")
+        return nil
+    }
+
+	if r.client != nil {
+		err := r.client.Close()
+		if err != nil {
+			_ = r.client.Close() // Ignore errors during close
+		}
+	}
 	
 	ss := new(memcache.ServerList)
 	err := ss.SetServers(r.serverList...)
