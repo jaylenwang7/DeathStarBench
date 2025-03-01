@@ -20,10 +20,10 @@ var (
 	defaultMemCMaxIdleConns int    = 512
 	defaultLogLevel         string = "info"
 	defaultRetryAttempts    int    = 5
-	defaultRetryDelay       int    = 1 		// seconds
-	defaultMaxRetryDelay    int    = 5 		// seconds
+	defaultRetryDelay       int    = 1      // seconds
+	defaultMaxRetryDelay    int    = 5      // seconds
 	defaultOpRetryAttempts  int    = 3  	// operation retry attempts
-	defaultOpRetryDelay     int    = 50  	// operation retry delay (milliseconds)
+	defaultOpRetryDelay     int    = 50     // operation retry delay (milliseconds)
 )
 
 // ResilientMemcClient is a wrapper around memcache.Client that provides resilience features
@@ -144,40 +144,62 @@ func GetOperationRetrySettings() (attempts int, delay time.Duration) {
 
 var resetLimiter = make(chan struct{}, 5)
 
-// resetConnection resets the memcached client connection
+// resetConnection resets the memcached client connection with DNS re-resolution
 func (r *ResilientMemcClient) resetConnection() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	log.Warn().Msg("Resetting memcached connection...")
 
+	// Rate limit resets to avoid thundering herd
 	select {
-    case resetLimiter <- struct{}{}:
-        defer func() { <-resetLimiter }() // Release when done
-    case <-time.After(100 * time.Millisecond):
-        // Skip if too many resets happening
-        log.Warn().Msg("Skipping connection reset - too many concurrent resets")
-        return nil
-    }
+	case resetLimiter <- struct{}{}:
+		log.Debug().Msg("Acquired reset limiter slot")
+		defer func() { 
+			<-resetLimiter 
+			log.Debug().Msg("Released reset limiter slot")
+		}() // Release when done
+	case <-time.After(100 * time.Millisecond):
+		// Skip if too many resets happening
+		log.Warn().Msg("Skipping connection reset - too many concurrent resets")
+		return nil
+	}
 
+	// Gracefully close existing client if present
 	if r.client != nil {
-		err := r.client.Close()
-		if err != nil {
-			_ = r.client.Close() // Ignore errors during close
-		}
+		log.Debug().Msg("Closing existing memcached connection")
+		// Only attempt to close once and ignore errors
+		_ = r.client.Close()
+		r.client = nil
 	}
 	
+	// Create a fresh server selector to force DNS re-resolution
 	ss := new(memcache.ServerList)
+	
+	// Log the servers we're connecting to
+	log.Info().Strs("servers", r.serverList).Msg("Re-resolving memcached servers")
+	
+	// Set servers will trigger DNS resolution
 	err := ss.SetServers(r.serverList...)
 	if err != nil {
-		return fmt.Errorf("failed to set servers during reset: %w", err)
+		log.Error().Err(err).Strs("servers", r.serverList).Msg("DNS resolution failed for memcached servers")
+		return fmt.Errorf("failed to re-resolve memcached servers during reset: %w", err)
 	}
 
-	// Create client
+	// Create client with fresh connections
 	r.client = memcache.NewFromSelector(ss)
 	r.client.Timeout = time.Second * time.Duration(GetMemCTimeout())
 	r.client.MaxIdleConns = defaultMemCMaxIdleConns
+	log.Debug().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", defaultMemCMaxIdleConns).Msg("Created new memcached client")
 
+	// Verify the new connection works
+	log.Debug().Msg("Validating new memcached connection")
+	if err := validateMemcachedConnection(r.client); err != nil {
+		log.Error().Err(err).Msg("New memcached connection failed validation after reset")
+		return fmt.Errorf("new connection failed validation: %w", err)
+	}
+
+	log.Info().Msg("Successfully reset memcached connection")
 	return nil
 }
 
@@ -187,12 +209,15 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
     var item *memcache.Item
     var err error
     
+    startTime := time.Now()
+    
     for i := 0; i <= retryAttempts; i++ {
         if i > 0 {
             // Immediate reset on first retry without delay
             if i == 1 {
+                log.Debug().Str("key", key).Msg("First retry - resetting connection")
                 if resetErr := r.resetConnection(); resetErr != nil {
-                    log.Error().Err(resetErr).Msg("Failed to reset memcached connection")
+                    log.Error().Err(resetErr).Str("key", key).Msg("Failed to reset memcached connection")
                 }
                 // Don't sleep on first retry after reset
             } else {
@@ -201,24 +226,32 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
             }
         }
         
+        opStartTime := time.Now()
         item, err = r.client.Get(key)
+        opDuration := time.Since(opStartTime)
         
         // If successful or it's a cache miss (normal behavior), return immediately
-        if err == nil || err == memcache.ErrCacheMiss {
+        if err == nil {
+            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached Get successful")
+            return item, err
+        } else if err == memcache.ErrCacheMiss {
+            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached key not found")
             return item, err
         }
         
         // For connection errors, don't wait before the first retry
         if i == 0 {
+            log.Warn().Err(err).Str("key", key).Dur("duration_ms", opDuration).Msg("Memcached Get failed, immediate retry")
             continue  // Skip the sleep for first retry
         }
         
         // Log the error but continue retrying
-        log.Error().Err(err).Msgf("Memcached Get error for key %s", key)
+        log.Error().Err(err).Str("key", key).Dur("duration_ms", opDuration).Int("attempt", i+1).Int("max_attempts", retryAttempts+1).Msg("Memcached Get error")
     }
     
     // If we got here, all retries failed - fall back to database
-    log.Error().Err(err).Msgf("All memcached Get retries failed for key %s", key)
+    totalDuration := time.Since(startTime)
+    log.Error().Err(err).Str("key", key).Dur("total_duration_ms", totalDuration).Int("attempts", retryAttempts+1).Msg("All memcached Get retries failed")
     return nil, err
 }
 
@@ -406,78 +439,96 @@ func (r *ResilientMemcClient) Delete(key string) error {
 
 // CreateResilientMemcClient creates a resilient memcached client with retry and recovery capabilities
 func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
-	// Use existing retry settings
-	maxRetries, initialDelay, maxDelay := GetRetrySettings()
-	backoff := time.Duration(initialDelay) * time.Second
-	
-	ss := new(memcache.ServerList)
-	var client *memcache.Client
-	var err error
-	
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		log.Info().Msgf("Connecting to Memcached servers: %v (attempt %d/%d)", servers, attempt, maxRetries)
-		
-		err = ss.SetServers(servers...)
-		if err != nil {
-			log.Warn().Err(err).Msgf("Failed to set Memcached servers. Retrying in %v...", backoff)
-			time.Sleep(backoff)
-			
-			// Exponential backoff with cap
-			backoff *= 2
-			if backoff > time.Duration(maxDelay)*time.Second {
-				backoff = time.Duration(maxDelay) * time.Second
-			}
-			continue
-		}
-		
-		// Create client
-		client = memcache.NewFromSelector(ss)
-		client.Timeout = time.Second * time.Duration(GetMemCTimeout())
-		client.MaxIdleConns = defaultMemCMaxIdleConns
-		
-		// Validate the connection
-		if err = validateMemcachedConnection(client); err != nil {
-			log.Warn().Err(err).Msg("Memcached connection validation failed. Retrying...")
-			time.Sleep(backoff)
-			
-			// Exponential backoff with cap
-			backoff *= 2
-			if backoff > time.Duration(maxDelay)*time.Second {
-				backoff = time.Duration(maxDelay) * time.Second
-			}
-			continue
-		}
-		
-		// Connection successful - create the resilient client
-		log.Info().Msg("Successfully connected to Memcached")
-		retryAttempts, retryDelay := GetOperationRetrySettings()
-		
-		return &ResilientMemcClient{
-			client:        client,
-			serverList:    servers,
-			retryAttempts: retryAttempts,
-			retryDelay:    retryDelay,
-		}, nil
-	}
-	
-	// If we've exhausted all retries
-	return nil, fmt.Errorf("failed to connect to Memcached after %d attempts: %w", maxRetries, err)
+    // Use existing retry settings
+    maxRetries, initialDelay, maxDelay := GetRetrySettings()
+    backoff := time.Duration(initialDelay) * time.Second
+    
+    log.Info().Strs("servers", servers).Int("max_retries", maxRetries).
+        Int("initial_delay_sec", initialDelay).Int("max_delay_sec", maxDelay).
+        Msg("Creating resilient memcached client")
+    
+    ss := new(memcache.ServerList)
+    var client *memcache.Client
+    var err error
+    
+    for attempt := 1; attempt <= maxRetries; attempt++ {
+        log.Info().Msgf("Connecting to Memcached servers: %v (attempt %d/%d)", servers, attempt, maxRetries)
+        
+        err = ss.SetServers(servers...)
+        if err != nil {
+            log.Warn().Err(err).Strs("servers", servers).Dur("backoff", backoff).
+                Int("attempt", attempt).Int("max_attempts", maxRetries).
+                Msg("Failed to set Memcached servers. Retrying...")
+            time.Sleep(backoff)
+            
+            // Exponential backoff with cap
+            backoff *= 2
+            if backoff > time.Duration(maxDelay)*time.Second {
+                backoff = time.Duration(maxDelay) * time.Second
+            }
+            continue
+        }
+        
+        // Create client
+        client = memcache.NewFromSelector(ss)
+        client.Timeout = time.Second * time.Duration(GetMemCTimeout())
+        client.MaxIdleConns = defaultMemCMaxIdleConns
+        
+        log.Debug().Int("timeout_seconds", GetMemCTimeout()).
+            Int("max_idle_conns", defaultMemCMaxIdleConns).
+            Msg("Created memcached client with configuration")
+        
+        // Validate the connection
+        log.Debug().Msg("Validating initial memcached connection")
+        if err = validateMemcachedConnection(client); err != nil {
+            log.Warn().Err(err).Strs("servers", servers).Dur("backoff", backoff).
+                Int("attempt", attempt).Int("max_attempts", maxRetries).
+                Msg("Memcached connection validation failed. Retrying...")
+            time.Sleep(backoff)
+            
+            // Exponential backoff with cap
+            backoff *= 2
+            if backoff > time.Duration(maxDelay)*time.Second {
+                backoff = time.Duration(maxDelay) * time.Second
+            }
+            continue
+        }
+        
+        // Connection successful - create the resilient client
+        log.Info().Strs("servers", servers).Int("attempt", attempt).Msg("Successfully connected to Memcached")
+        retryAttempts, retryDelay := GetOperationRetrySettings()
+        
+        log.Info().Int("retry_attempts", retryAttempts).Dur("retry_delay", retryDelay).
+            Msg("Configured operation retry settings for memcached client")
+        
+        return &ResilientMemcClient{
+            client:        client,
+            serverList:    servers,
+            retryAttempts: retryAttempts,
+            retryDelay:    retryDelay,
+        }, nil
+    }
+    
+    // If we've exhausted all retries
+    log.Error().Err(err).Strs("servers", servers).Int("max_retries", maxRetries).
+        Msg("Failed to connect to Memcached after all attempts")
+    return nil, fmt.Errorf("failed to connect to Memcached after %d attempts: %w", maxRetries, err)
 }
 
 // NewMemCClient creates a resilient memcached client from a list of servers
-func NewMemCClient(server ...string) *ResilientMemcClient {
+func NewMemCClient(server ...string) (*ResilientMemcClient, error) {
 	if len(server) == 0 {
 		log.Error().Msg("No Memcached servers provided")
-		panic("No Memcached servers provided")
+		return nil, fmt.Errorf("No Memcached servers provided")
 	}
 	
 	client, err := CreateResilientMemcClient(server)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create resilient memcached client")
-		panic(fmt.Sprintf("Failed to connect to Memcached: %v", err))
+		return nil, err
 	}
 	
-	return client
+	return client, nil
 }
 
 // NewMemCClient2 creates a resilient memcached client from a comma-separated list of servers
@@ -493,34 +544,62 @@ func NewMemCClient2(servers string) *ResilientMemcClient {
 
 // Validate the Memcached connection by setting and getting a test key
 func validateMemcachedConnection(client *memcache.Client) error {
-	testKey := "connection_test_" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	testValue := "test_value"
-	
-	// Set a test item
-	err := client.Set(&memcache.Item{
-		Key:   testKey,
-		Value: []byte(testValue),
-	})
-	
-	if err != nil {
-		return fmt.Errorf("failed to set test key: %w", err)
-	}
-	
-	// Get the test item
-	item, err := client.Get(testKey)
-	if err != nil {
-		return fmt.Errorf("failed to get test key: %w", err)
-	}
-	
-	// Validate the value
-	if string(item.Value) != testValue {
-		return fmt.Errorf("test key value mismatch: expected %s, got %s", testValue, string(item.Value))
-	}
-	
-	// Delete the test item
-	_ = client.Delete(testKey)
-	
-	return nil
+    startTime := time.Now()
+    
+    testKey := "connection_test_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+    testValue := "test_value"
+    
+    log.Debug().Str("test_key", testKey).Msg("Validating memcached connection")
+    
+    // Set a test item
+    setStart := time.Now()
+    err := client.Set(&memcache.Item{
+        Key:   testKey,
+        Value: []byte(testValue),
+    })
+    setDuration := time.Since(setStart)
+    
+    if err != nil {
+        log.Error().Err(err).Str("test_key", testKey).Dur("duration_ms", setDuration).Msg("Failed to set test key during validation")
+        return fmt.Errorf("failed to set test key: %w", err)
+    }
+    
+    log.Debug().Str("test_key", testKey).Dur("set_duration_ms", setDuration).Msg("Set test key successful")
+    
+    // Get the test item
+    getStart := time.Now()
+    item, err := client.Get(testKey)
+    getDuration := time.Since(getStart)
+    
+    if err != nil {
+        log.Error().Err(err).Str("test_key", testKey).Dur("duration_ms", getDuration).Msg("Failed to get test key during validation")
+        return fmt.Errorf("failed to get test key: %w", err)
+    }
+    
+    // Validate the value
+    if string(item.Value) != testValue {
+        log.Error().Str("test_key", testKey).Str("expected", testValue).Str("actual", string(item.Value)).Msg("Test key value mismatch")
+        return fmt.Errorf("test key value mismatch: expected %s, got %s", testValue, string(item.Value))
+    }
+    
+    log.Debug().Str("test_key", testKey).Dur("get_duration_ms", getDuration).Msg("Get test key successful")
+    
+    // Delete the test item
+    deleteStart := time.Now()
+    deleteErr := client.Delete(testKey)
+    deleteDuration := time.Since(deleteStart)
+    
+    if deleteErr != nil && deleteErr != memcache.ErrCacheMiss {
+        log.Warn().Err(deleteErr).Str("test_key", testKey).Dur("duration_ms", deleteDuration).Msg("Failed to delete test key during validation")
+        // Don't fail validation just because delete failed
+    } else {
+        log.Debug().Str("test_key", testKey).Dur("delete_duration_ms", deleteDuration).Msg("Delete test key successful")
+    }
+    
+    totalDuration := time.Since(startTime)
+    log.Debug().Str("test_key", testKey).Dur("total_duration_ms", totalDuration).Msg("Memcached connection validation successful")
+    
+    return nil
 }
 
 // Init initializes the tune package settings
