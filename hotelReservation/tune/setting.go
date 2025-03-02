@@ -516,19 +516,19 @@ func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
 }
 
 // NewMemCClient creates a resilient memcached client from a list of servers
-func NewMemCClient(server ...string) (*ResilientMemcClient, error) {
+func NewMemCClient(server ...string) *ResilientMemcClient {
 	if len(server) == 0 {
 		log.Error().Msg("No Memcached servers provided")
-		return nil, fmt.Errorf("No Memcached servers provided")
+		panic("No Memcached servers provided")
 	}
 	
 	client, err := CreateResilientMemcClient(server)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create resilient memcached client")
-		return nil, err
+		panic(fmt.Sprintf("Failed to create resilient memcached client: %v", err))
 	}
 	
-	return client, nil
+	return client
 }
 
 // NewMemCClient2 creates a resilient memcached client from a comma-separated list of servers
