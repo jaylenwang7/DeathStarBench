@@ -3,7 +3,7 @@ package tune
 import (
 	"fmt"
 	"os"
-	"runtime/debug"
+	"runtime/Info"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +41,7 @@ func setGCPercent() {
 		ratio, _ = strconv.Atoi(val)
 	}
 
-	debug.SetGCPercent(ratio)
+	Info.SetGCPercent(ratio)
 	log.Info().Msgf("Tune: setGCPercent to %d", ratio)
 }
 
@@ -55,8 +55,8 @@ func setLogLevel() {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	case "warning":
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	case "Info":
+		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	case "info":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	case "trace":
@@ -154,10 +154,10 @@ func (r *ResilientMemcClient) resetConnection() error {
 	// Rate limit resets to avoid thundering herd
 	select {
 	case resetLimiter <- struct{}{}:
-		log.Debug().Msg("Acquired reset limiter slot")
+		log.Info().Msg("Acquired reset limiter slot")
 		defer func() { 
 			<-resetLimiter 
-			log.Debug().Msg("Released reset limiter slot")
+			log.Info().Msg("Released reset limiter slot")
 		}() // Release when done
 	case <-time.After(100 * time.Millisecond):
 		// Skip if too many resets happening
@@ -167,7 +167,7 @@ func (r *ResilientMemcClient) resetConnection() error {
 
 	// Gracefully close existing client if present
 	if r.client != nil {
-		log.Debug().Msg("Closing existing memcached connection")
+		log.Info().Msg("Closing existing memcached connection")
 		// Only attempt to close once and ignore errors
 		_ = r.client.Close()
 		r.client = nil
@@ -190,10 +190,10 @@ func (r *ResilientMemcClient) resetConnection() error {
 	r.client = memcache.NewFromSelector(ss)
 	r.client.Timeout = time.Second * time.Duration(GetMemCTimeout())
 	r.client.MaxIdleConns = defaultMemCMaxIdleConns
-	log.Debug().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", defaultMemCMaxIdleConns).Msg("Created new memcached client")
+	log.Info().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", defaultMemCMaxIdleConns).Msg("Created new memcached client")
 
 	// Verify the new connection works
-	log.Debug().Msg("Validating new memcached connection")
+	log.Info().Msg("Validating new memcached connection")
 	if err := validateMemcachedConnection(r.client); err != nil {
 		log.Error().Err(err).Msg("New memcached connection failed validation after reset")
 		return fmt.Errorf("new connection failed validation: %w", err)
@@ -215,7 +215,7 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
         if i > 0 {
             // Immediate reset on first retry without delay
             if i == 1 {
-                log.Debug().Str("key", key).Msg("First retry - resetting connection")
+                log.Info().Str("key", key).Msg("First retry - resetting connection")
                 if resetErr := r.resetConnection(); resetErr != nil {
                     log.Error().Err(resetErr).Str("key", key).Msg("Failed to reset memcached connection")
                 }
@@ -226,16 +226,31 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
             }
         }
         
+        // Check if client is nil before using it
+        if r.client == nil {
+            log.Error().Str("key", key).Msg("Memcached client is nil, attempting to recreate")
+            if resetErr := r.resetConnection(); resetErr != nil {
+                log.Error().Err(resetErr).Str("key", key).Msg("Failed to recreate memcached connection")
+                continue
+            }
+            
+            // If client is still nil after reset attempt, skip this iteration
+            if r.client == nil {
+                log.Error().Str("key", key).Msg("Memcached client is still nil after reset attempt")
+                continue
+            }
+        }
+        
         opStartTime := time.Now()
         item, err = r.client.Get(key)
         opDuration := time.Since(opStartTime)
         
         // If successful or it's a cache miss (normal behavior), return immediately
         if err == nil {
-            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached Get successful")
+            log.Info().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached Get successful")
             return item, err
         } else if err == memcache.ErrCacheMiss {
-            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached key not found")
+            log.Info().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached key not found")
             return item, err
         }
         
@@ -287,6 +302,21 @@ func (r *ResilientMemcClient) GetMulti(keys []string) (map[string]*memcache.Item
 			}
 			log.Warn().Msgf("Retrying memcached GetMulti for %d keys (attempt %d/%d)", len(keys), i, retryAttempts)
 			time.Sleep(retryDelay)
+		}
+		
+		// Check if client is nil before using it
+		if r.client == nil {
+			log.Error().Int("keys_count", len(keys)).Msg("Memcached client is nil, attempting to recreate")
+			if resetErr := r.resetConnection(); resetErr != nil {
+				log.Error().Err(resetErr).Int("keys_count", len(keys)).Msg("Failed to recreate memcached connection")
+				continue
+			}
+			
+			// If client is still nil after reset attempt, skip this iteration
+			if r.client == nil {
+				log.Error().Int("keys_count", len(keys)).Msg("Memcached client is still nil after reset attempt")
+				continue
+			}
 		}
 		
 		items, err = r.client.GetMulti(keys)
@@ -474,12 +504,12 @@ func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
         client.Timeout = time.Second * time.Duration(GetMemCTimeout())
         client.MaxIdleConns = defaultMemCMaxIdleConns
         
-        log.Debug().Int("timeout_seconds", GetMemCTimeout()).
+        log.Info().Int("timeout_seconds", GetMemCTimeout()).
             Int("max_idle_conns", defaultMemCMaxIdleConns).
             Msg("Created memcached client with configuration")
         
         // Validate the connection
-        log.Debug().Msg("Validating initial memcached connection")
+        log.Info().Msg("Validating initial memcached connection")
         if err = validateMemcachedConnection(client); err != nil {
             log.Warn().Err(err).Strs("servers", servers).Dur("backoff", backoff).
                 Int("attempt", attempt).Int("max_attempts", maxRetries).
@@ -549,7 +579,7 @@ func validateMemcachedConnection(client *memcache.Client) error {
     testKey := "connection_test_" + strconv.FormatInt(time.Now().UnixNano(), 10)
     testValue := "test_value"
     
-    log.Debug().Str("test_key", testKey).Msg("Validating memcached connection")
+    log.Info().Str("test_key", testKey).Msg("Validating memcached connection")
     
     // Set a test item
     setStart := time.Now()
@@ -564,7 +594,7 @@ func validateMemcachedConnection(client *memcache.Client) error {
         return fmt.Errorf("failed to set test key: %w", err)
     }
     
-    log.Debug().Str("test_key", testKey).Dur("set_duration_ms", setDuration).Msg("Set test key successful")
+    log.Info().Str("test_key", testKey).Dur("set_duration_ms", setDuration).Msg("Set test key successful")
     
     // Get the test item
     getStart := time.Now()
@@ -582,7 +612,7 @@ func validateMemcachedConnection(client *memcache.Client) error {
         return fmt.Errorf("test key value mismatch: expected %s, got %s", testValue, string(item.Value))
     }
     
-    log.Debug().Str("test_key", testKey).Dur("get_duration_ms", getDuration).Msg("Get test key successful")
+    log.Info().Str("test_key", testKey).Dur("get_duration_ms", getDuration).Msg("Get test key successful")
     
     // Delete the test item
     deleteStart := time.Now()
@@ -593,11 +623,11 @@ func validateMemcachedConnection(client *memcache.Client) error {
         log.Warn().Err(deleteErr).Str("test_key", testKey).Dur("duration_ms", deleteDuration).Msg("Failed to delete test key during validation")
         // Don't fail validation just because delete failed
     } else {
-        log.Debug().Str("test_key", testKey).Dur("delete_duration_ms", deleteDuration).Msg("Delete test key successful")
+        log.Info().Str("test_key", testKey).Dur("delete_duration_ms", deleteDuration).Msg("Delete test key successful")
     }
     
     totalDuration := time.Since(startTime)
-    log.Debug().Str("test_key", testKey).Dur("total_duration_ms", totalDuration).Msg("Memcached connection validation successful")
+    log.Info().Str("test_key", testKey).Dur("total_duration_ms", totalDuration).Msg("Memcached connection validation successful")
     
     return nil
 }
