@@ -5,7 +5,9 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/registry"
@@ -75,6 +77,23 @@ func main() {
 		MemcClient:  memcClient,
 	}
 
-	log.Info().Msg("Starting server...")
-	log.Fatal().Msg(srv.Run().Error())
+	// Set up graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine so it doesn't block the signal handling
+	go func() {
+		log.Info().Msg("Starting server...")
+		if err := srv.Run(); err != nil {
+			log.Fatal().Err(err).Msg("Server failed")
+		}
+	}()
+
+	// Wait for termination signal
+	sig := <-sigCh
+	log.Info().Msgf("Received signal %v, shutting down...", sig)
+	
+	// Call Shutdown to deregister from Consul
+	srv.Shutdown()
+	log.Info().Msg("Server gracefully stopped")
 }
