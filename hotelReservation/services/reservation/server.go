@@ -121,53 +121,76 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 
 		// first check memc
 		memc_key := hotelId + "_" + inDate.String()[0:10] + "_" + outdate
+		startTime := time.Now()
 		item, err := s.MemcClient.Get(memc_key)
+		duration := time.Since(startTime)
+		
 		if err == nil {
 			// memcached hit
 			count, _ = strconv.Atoi(string(item.Value))
-			log.Trace().Msgf("memcached hit %s = %d", memc_key, count)
+			log.Info().Str("key", memc_key).Int("count", count).Dur("duration_ms", duration).Msg("Memcached hit for reservation count")
 			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
 
 		} else if err == memcache.ErrCacheMiss {
 			// memcached miss
-			log.Trace().Msgf("memcached miss")
+			log.Info().Str("key", memc_key).Dur("duration_ms", duration).Msg("Memcached miss for reservation count, querying database")
 			var reserve []reservation
 
+			dbStartTime := time.Now()
 			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
 			curr, err := resCollection.Find(context.TODO(), filter)
 			if err != nil {
-				log.Error().Msgf("Failed get reservation data: ", err)
-			}
-			curr.All(context.TODO(), &reserve)
-			if err != nil {
-				log.Panic().Msgf("Tried to find hotelId [%v] from date [%v] to date [%v], but got error", hotelId, indate, outdate, err.Error())
-			}
-
-			for _, r := range reserve {
-				count += r.Number
-			}
-
-			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
-
-		} else {
-			// Log the error but don't panic
-			log.Error().Msgf("Memcached error for key [%v]: %s. Falling back to database", memc_key, err)
-			
-			// Fall back to database query (similar to the memcached miss case)
-			var reserve []reservation
-		
-			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
-			curr, err := resCollection.Find(context.TODO(), filter)
-			if err != nil {
-				log.Error().Msgf("Failed to get reservation data: %v", err)
+				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to query reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			
 			err = curr.All(context.TODO(), &reserve)
 			if err != nil {
-				log.Error().Msgf("Failed to decode reservation data: %v", err)
+				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to decode reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
+			dbDuration := time.Since(dbStartTime)
+			log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
+
+			for _, r := range reserve {
+				count += r.Number
+			}
+
+			// Update memcached with the count we found
+			cacheKey := hotelId + "_" + inDate.String()[0:10] + "_" + outdate
+			go func(key string, value int) {
+				err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(value))})
+				if err != nil {
+					log.Warn().Err(err).Str("key", key).Int("value", value).Msg("Failed to update memcached after database query")
+				} else {
+					log.Info().Str("key", key).Int("value", value).Msg("Updated memcached after database query")
+				}
+			}(cacheKey, count)
+
+			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
+
+		} else {
+			// Log the error but don't panic
+			log.Error().Err(err).Str("key", memc_key).Dur("duration_ms", duration).Msg("Memcached error, falling back to database")
+			
+			// Fall back to database query (similar to the memcached miss case)
+			var reserve []reservation
+		
+			dbStartTime := time.Now()
+			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
+			curr, err := resCollection.Find(context.TODO(), filter)
+			if err != nil {
+				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to query reservation data")
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			
+			err = curr.All(context.TODO(), &reserve)
+			if err != nil {
+				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to decode reservation data")
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			dbDuration := time.Since(dbStartTime)
+			log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
 			
 			count := 0
 			for _, r := range reserve {
@@ -180,38 +203,60 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		// check capacity
 		// check memc capacity
 		memc_cap_key := hotelId + "_cap"
+		capStartTime := time.Now()
 		item, err = s.MemcClient.Get(memc_cap_key)
+		capDuration := time.Since(capStartTime)
+		
 		hotel_cap := 0
 		if err == nil {
 			// memcached hit
 			hotel_cap, _ = strconv.Atoi(string(item.Value))
-			log.Trace().Msgf("memcached hit %s = %d", memc_cap_key, hotel_cap)
+			log.Info().Str("key", memc_cap_key).Int("capacity", hotel_cap).Dur("duration_ms", capDuration).Msg("Memcached hit for hotel capacity")
 		} else if err == memcache.ErrCacheMiss {
 			// memcached miss
-			var num number
-			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
-			if err != nil {
-				log.Panic().Msgf("Tried to find hotelId [%v], but got error", hotelId, err.Error())
-			}
-			hotel_cap = int(num.Number)
-
-			// write to memcache
-			s.MemcClient.Set(&memcache.Item{Key: memc_cap_key, Value: []byte(strconv.Itoa(hotel_cap))})
-		} else {
-			log.Error().Msgf("Memcached error for capacity key [%v]: %s. Falling back to database", memc_cap_key, err)
+			log.Info().Str("key", memc_cap_key).Dur("duration_ms", capDuration).Msg("Memcached miss for hotel capacity, querying database")
 			
-			// Fall back to database query for capacity
+			dbStartTime := time.Now()
 			var num number
 			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
 			if err != nil {
-				log.Error().Msgf("Failed to find hotel capacity for hotelId [%v]: %v", hotelId, err)
+				log.Error().Err(err).Str("hotelId", hotelId).Msg("Failed to find hotel capacity in database")
 				return res, fmt.Errorf("database error: %v", err)
 			}
+			dbDuration := time.Since(dbStartTime)
 			
 			hotel_cap = int(num.Number)
+			log.Info().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
+
+			// write to memcache
+			go func(key string, value int) {
+				err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(value))})
+				if err != nil {
+					log.Warn().Err(err).Str("key", key).Int("value", value).Msg("Failed to cache hotel capacity in memcached")
+				} else {
+					log.Info().Str("key", key).Int("value", value).Msg("Cached hotel capacity in memcached")
+				}
+			}(memc_cap_key, hotel_cap)
+		} else {
+			log.Error().Err(err).Str("key", memc_cap_key).Dur("duration_ms", capDuration).Msg("Memcached error for capacity, falling back to database")
+			
+			// Fall back to database query for capacity
+			dbStartTime := time.Now()
+			var num number
+			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
+			if err != nil {
+				log.Error().Err(err).Str("hotelId", hotelId).Msg("Failed to find hotel capacity in database")
+				return res, fmt.Errorf("database error: %v", err)
+			}
+			dbDuration := time.Since(dbStartTime)
+			
+			hotel_cap = int(num.Number)
+			log.Info().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
 		}
 
+		// Check if we have enough capacity
 		if count+int(req.RoomNumber) > hotel_cap {
+			log.Info().Str("hotelId", hotelId).Int("requested", int(req.RoomNumber)).Int("available", hotel_cap-count).Msg("Insufficient capacity for reservation")
 			return res, nil
 		}
 		indate = outdate
@@ -219,19 +264,28 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 
 	// only update reservation number cache after check succeeds
 	for key, val := range memc_date_num_map {
-		s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(val))})
+		err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(val))})
+		if err != nil {
+			log.Warn().Err(err).Str("key", key).Int("value", val).Msg("Failed to update reservation count in memcached")
+		} else {
+			log.Info().Str("key", key).Int("value", val).Msg("Updated reservation count in memcached")
+		}
 	}
 
+	// Now create the actual reservations in the database
 	inDate, _ = time.Parse(
 		time.RFC3339,
 		req.InDate+"T12:00:00+00:00")
 
 	indate = inDate.String()[0:10]
+	log.Info().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Str("inDate", req.InDate).Str("outDate", req.OutDate).Int("roomNumber", int(req.RoomNumber)).Msg("Creating reservation records")
 
 	for inDate.Before(outDate) {
 		inDate = inDate.AddDate(0, 0, 1)
 		outdate := inDate.String()[0:10]
-		_, err := resCollection.InsertOne(
+		
+		insertStartTime := time.Now()
+		result, err := resCollection.InsertOne(
 			context.TODO(),
 			reservation{
 				HotelId:      hotelId,
@@ -241,13 +295,20 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 				Number:       int(req.RoomNumber),
 			},
 		)
+		insertDuration := time.Since(insertStartTime)
+		
 		if err != nil {
-			log.Panic().Msgf("Tried to insert hotel [hotelId %v], but got error", hotelId, err.Error())
+			log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to insert reservation record")
+			return res, fmt.Errorf("database error: %v", err)
 		}
+		
+		log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Interface("insertId", result.InsertedID).Dur("duration_ms", insertDuration).Msg("Inserted reservation record")
+		
 		indate = outdate
 	}
 
 	res.HotelId = append(res.HotelId, hotelId)
+	log.Info().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Msg("Reservation completed successfully")
 
 	return res, nil
 }
