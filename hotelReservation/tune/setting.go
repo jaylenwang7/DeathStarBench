@@ -17,7 +17,7 @@ import (
 var (
 	defaultGCPercent        int    = 100
 	defaultMemCTimeout      int    = 2
-	defaultMemCMaxIdleConns int    = 512
+	defaultMemCMaxIdleConns int    = 2048
 	defaultLogLevel         string = "info"
 	defaultRetryAttempts    int    = 5
 	defaultRetryDelay       int    = 1      // seconds
