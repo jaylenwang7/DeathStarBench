@@ -3,7 +3,7 @@ package tune
 import (
 	"fmt"
 	"os"
-	"runtime/Info"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +41,7 @@ func setGCPercent() {
 		ratio, _ = strconv.Atoi(val)
 	}
 
-	Info.SetGCPercent(ratio)
+	debug.SetGCPercent(ratio)
 	log.Info().Msgf("Tune: setGCPercent to %d", ratio)
 }
 
@@ -55,7 +55,7 @@ func setLogLevel() {
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	case "warning":
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "Info":
+	case "debug":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	case "info":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
