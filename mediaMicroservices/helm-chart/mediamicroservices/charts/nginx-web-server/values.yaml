@@ -33,7 +33,7 @@ initContainer:
   command: "/bin/sh"
   args: [
       "-c",
-      "git clone https://github.com/jaylenwang7/DeathStarBench.git /DeathStarBench &&
+      "git clone -b test-media https://github.com/jaylenwang7/DeathStarBench.git /DeathStarBench &&
       cp -r /DeathStarBench/mediaMicroservices/gen-lua/* /gen-lua/ &&
       cp -r /DeathStarBench/mediaMicroservices/nginx-web-server/lua-scripts/* /lua-scripts/",
     ]
