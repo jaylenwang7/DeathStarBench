@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import urllib3
+import re
 
 def load_stats_config():
     """
@@ -98,8 +99,11 @@ def random_string(length):
     return ''.join(random.choice(CHARSET) for _ in range(length))
 
 def url_encode(s):
-    """URL encode a string"""
-    return s.replace(' ', '+').replace(':', '%3A')
+    """URL encode a string following the same pattern as the Lua script"""
+    # First encode all non-alphanumeric chars except dots and hyphens
+    s = re.sub(r'[^a-zA-Z0-9\.\- ]', lambda m: '%{:02X}'.format(ord(m.group(0))), s)
+    # Then replace spaces with plus signs
+    return s.replace(' ', '+')
 
 def constant_pacing(wait_time):
     """
@@ -130,16 +134,11 @@ class MediaMicroserviceUser(FastHttpUser):
         rating = random.randint(0, 10)
         text = random_string(256)
 
-        data = {
-            "username": username,
-            "password": password,
-            "title": title,
-            "rating": str(rating),
-            "text": text
-        }
+        # Format the request body exactly like the Lua script
+        body = f"username={username}&password={password}&title={title}&rating={rating}&text={text}"
 
         self.client.post("/wrk2-api/review/compose", 
-                        data=data,
+                        data=body,  # Send raw body string instead of dict
                         headers={"Content-Type": "application/x-www-form-urlencoded"},
                         name='compose_review')
 

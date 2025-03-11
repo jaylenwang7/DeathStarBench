@@ -13,8 +13,19 @@ local function _UploadUserId(req_id, post, carrier)
   local UserServiceClient = require 'media_service_UserService'
   local user_client = GenericObjectPool:connection(
     UserServiceClient,"user-service" .. k8s_suffix,9090)
-  user_client:UploadUserWithUsername(req_id, post.username, carrier)
+  
+  local status, err = pcall(function()
+    user_client:UploadUserWithUsername(req_id, post.username, carrier)
+  end)
+  
   GenericObjectPool:returnConnection(user_client)
+  
+  if not status then
+    ngx.log(ngx.ERR, "Failed to upload user ID: " .. tostring(err))
+    return false, err
+  end
+  
+  return true
 end
 
 local function _UploadText(req_id, post, carrier)
@@ -22,8 +33,19 @@ local function _UploadText(req_id, post, carrier)
   local TextServiceClient = require 'media_service_TextService'
   local text_client = GenericObjectPool:connection(
     TextServiceClient,"text-service" .. k8s_suffix ,9090)
-  text_client:UploadText(req_id, post.text, carrier)
+  
+  local status, err = pcall(function()
+    text_client:UploadText(req_id, post.text, carrier)
+  end)
+  
   GenericObjectPool:returnConnection(text_client)
+  
+  if not status then
+    ngx.log(ngx.ERR, "Failed to upload text: " .. tostring(err))
+    return false, err
+  end
+  
+  return true
 end
 
 local function _UploadMovieId(req_id, post, carrier)
@@ -31,8 +53,19 @@ local function _UploadMovieId(req_id, post, carrier)
   local MovieIdServiceClient = require 'media_service_MovieIdService'
   local movie_id_client = GenericObjectPool:connection(
     MovieIdServiceClient,"movie-id-service" .. k8s_suffix ,9090)
-  movie_id_client:UploadMovieId(req_id, post.title, tonumber(post.rating), carrier)
+  
+  local status, err = pcall(function()
+    movie_id_client:UploadMovieId(req_id, post.title, tonumber(post.rating), carrier)
+  end)
+  
   GenericObjectPool:returnConnection(movie_id_client)
+  
+  if not status then
+    ngx.log(ngx.ERR, "Failed to upload movie ID: " .. tostring(err))
+    return false, err
+  end
+  
+  return true
 end
 
 local function _UploadUniqueId(req_id, carrier)
@@ -40,8 +73,19 @@ local function _UploadUniqueId(req_id, carrier)
   local UniqueIdServiceClient = require 'media_service_UniqueIdService'
   local unique_id_client = GenericObjectPool:connection(
     UniqueIdServiceClient,"unique-id-service" .. k8s_suffix ,9090)
-  unique_id_client:UploadUniqueId(req_id, carrier)
+  
+  local status, err = pcall(function()
+    unique_id_client:UploadUniqueId(req_id, carrier)
+  end)
+  
   GenericObjectPool:returnConnection(unique_id_client)
+  
+  if not status then
+    ngx.log(ngx.ERR, "Failed to upload unique ID: " .. tostring(err))
+    return false, err
+  end
+  
+  return true
 end
 
 function _M.ComposeReview()
