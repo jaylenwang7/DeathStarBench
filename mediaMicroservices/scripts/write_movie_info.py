@@ -1,8 +1,11 @@
+#!/usr/bin/env python3
 import aiohttp
 import asyncio
 import sys
 import json
 import argparse
+import time
+from datetime import datetime
 
 async def upload_cast_info(session, addr, cast):
   async with session.post(addr + "/wrk2-api/cast-info/write", json=cast) as resp:
@@ -99,6 +102,10 @@ if __name__ == '__main__':
     type=str, default="http://127.0.0.1:30080")
   args = parser.parse_args()
 
+  start_time = time.time()
+  start_timestamp = datetime.now().strftime("%m/%d %H:%M:%S")
+  print(f"Started processing at {start_timestamp}")
+
   with open(args.cast_filename, 'r') as cast_file:
     raw_casts = json.load(cast_file)
   loop = asyncio.get_event_loop()
@@ -110,3 +117,7 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     future = asyncio.ensure_future(write_movie_info(args.server_addr, raw_movies))
     loop.run_until_complete(future)
+  
+  end_time = time.time()
+  duration = end_time - start_time
+  print(f"Completed in {duration:.2f} seconds")
