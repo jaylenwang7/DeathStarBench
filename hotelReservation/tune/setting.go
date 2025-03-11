@@ -165,14 +165,6 @@ func (r *ResilientMemcClient) resetConnection() error {
 		return nil
 	}
 
-	// Gracefully close existing client if present
-	if r.client != nil {
-		log.Info().Msg("Closing existing memcached connection")
-		// Only attempt to close once and ignore errors
-		_ = r.client.Close()
-		r.client = nil
-	}
-	
 	// Create a fresh server selector to force DNS re-resolution
 	ss := new(memcache.ServerList)
 	
@@ -186,19 +178,29 @@ func (r *ResilientMemcClient) resetConnection() error {
 		return fmt.Errorf("failed to re-resolve memcached servers during reset: %w", err)
 	}
 
-	// Create client with fresh connections
-	r.client = memcache.NewFromSelector(ss)
-	r.client.Timeout = time.Second * time.Duration(GetMemCTimeout())
-	r.client.MaxIdleConns = defaultMemCMaxIdleConns
+	// Create new client before replacing the old one
+	newClient := memcache.NewFromSelector(ss)
+	newClient.Timeout = time.Second * time.Duration(GetMemCTimeout())
+	newClient.MaxIdleConns = defaultMemCMaxIdleConns
 	log.Info().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", defaultMemCMaxIdleConns).Msg("Created new memcached client")
 
 	// Verify the new connection works
 	log.Info().Msg("Validating new memcached connection")
-	if err := validateMemcachedConnection(r.client); err != nil {
+	if err := validateMemcachedConnection(newClient); err != nil {
 		log.Error().Err(err).Msg("New memcached connection failed validation after reset")
 		return fmt.Errorf("new connection failed validation: %w", err)
 	}
 
+	// Gracefully close existing client if present
+	if r.client != nil {
+		log.Info().Msg("Closing existing memcached connection")
+		// Only attempt to close once and ignore errors
+		_ = r.client.Close()
+	}
+	
+	// Only replace the client after the new one is validated
+	r.client = newClient
+	
 	log.Info().Msg("Successfully reset memcached connection")
 	return nil
 }
@@ -226,23 +228,33 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
             }
         }
         
+        // Safely access the client with a read lock
+        r.mu.Lock()
+        client := r.client
+        r.mu.Unlock()
+        
         // Check if client is nil before using it
-        if r.client == nil {
+        if client == nil {
             log.Error().Str("key", key).Msg("Memcached client is nil, attempting to recreate")
             if resetErr := r.resetConnection(); resetErr != nil {
                 log.Error().Err(resetErr).Str("key", key).Msg("Failed to recreate memcached connection")
                 continue
             }
             
+            // Get the client again after reset
+            r.mu.Lock()
+            client = r.client
+            r.mu.Unlock()
+            
             // If client is still nil after reset attempt, skip this iteration
-            if r.client == nil {
+            if client == nil {
                 log.Error().Str("key", key).Msg("Memcached client is still nil after reset attempt")
                 continue
             }
         }
         
         opStartTime := time.Now()
-        item, err = r.client.Get(key)
+        item, err = client.Get(key)
         opDuration := time.Since(opStartTime)
         
         // If successful or it's a cache miss (normal behavior), return immediately
@@ -276,6 +288,7 @@ func (r *ResilientMemcClient) Close() error {
     
     if r.client != nil {
         err := r.client.Close()
+        r.client = nil // Set to nil after closing
         if err != nil {
             log.Error().Err(err).Msg("Error closing memcached client")
             return err
@@ -304,22 +317,32 @@ func (r *ResilientMemcClient) GetMulti(keys []string) (map[string]*memcache.Item
 			time.Sleep(retryDelay)
 		}
 		
+		// Safely access the client with a read lock
+		r.mu.Lock()
+		client := r.client
+		r.mu.Unlock()
+		
 		// Check if client is nil before using it
-		if r.client == nil {
+		if client == nil {
 			log.Error().Int("keys_count", len(keys)).Msg("Memcached client is nil, attempting to recreate")
 			if resetErr := r.resetConnection(); resetErr != nil {
 				log.Error().Err(resetErr).Int("keys_count", len(keys)).Msg("Failed to recreate memcached connection")
 				continue
 			}
 			
+			// Get the client again after reset
+			r.mu.Lock()
+			client = r.client
+			r.mu.Unlock()
+			
 			// If client is still nil after reset attempt, skip this iteration
-			if r.client == nil {
+			if client == nil {
 				log.Error().Int("keys_count", len(keys)).Msg("Memcached client is still nil after reset attempt")
 				continue
 			}
 		}
 		
-		items, err = r.client.GetMulti(keys)
+		items, err = client.GetMulti(keys)
 		if err != nil {
 			log.Error().Err(err).Msgf("Memcached GetMulti error for %d keys", len(keys))
 			continue
@@ -332,7 +355,7 @@ func (r *ResilientMemcClient) GetMulti(keys []string) (map[string]*memcache.Item
 		
 		// If we got zero items but expected some, there might be an issue
 		// Check if we can ping the server
-		if err = validateMemcachedConnection(r.client); err != nil {
+		if err = validateMemcachedConnection(client); err != nil {
 			log.Error().Err(err).Msg("Memcached connection validation failed during GetMulti")
 			err = fmt.Errorf("memcached connection error: %w", err)
 			continue
@@ -364,7 +387,32 @@ func (r *ResilientMemcClient) Set(item *memcache.Item) error {
 			time.Sleep(retryDelay)
 		}
 		
-		err = r.client.Set(item)
+		// Safely access the client with a read lock
+		r.mu.Lock()
+		client := r.client
+		r.mu.Unlock()
+		
+		// Check if client is nil before using it
+		if client == nil {
+			log.Error().Str("key", item.Key).Msg("Memcached client is nil, attempting to recreate")
+			if resetErr := r.resetConnection(); resetErr != nil {
+				log.Error().Err(resetErr).Str("key", item.Key).Msg("Failed to recreate memcached connection")
+				continue
+			}
+			
+			// Get the client again after reset
+			r.mu.Lock()
+			client = r.client
+			r.mu.Unlock()
+			
+			// If client is still nil after reset attempt, skip this iteration
+			if client == nil {
+				log.Error().Str("key", item.Key).Msg("Memcached client is still nil after reset attempt")
+				continue
+			}
+		}
+		
+		err = client.Set(item)
 		if err == nil {
 			return nil
 		}
@@ -394,7 +442,32 @@ func (r *ResilientMemcClient) Add(item *memcache.Item) error {
 			time.Sleep(retryDelay)
 		}
 		
-		err = r.client.Add(item)
+		// Safely access the client with a read lock
+		r.mu.Lock()
+		client := r.client
+		r.mu.Unlock()
+		
+		// Check if client is nil before using it
+		if client == nil {
+			log.Error().Str("key", item.Key).Msg("Memcached client is nil, attempting to recreate")
+			if resetErr := r.resetConnection(); resetErr != nil {
+				log.Error().Err(resetErr).Str("key", item.Key).Msg("Failed to recreate memcached connection")
+				continue
+			}
+			
+			// Get the client again after reset
+			r.mu.Lock()
+			client = r.client
+			r.mu.Unlock()
+			
+			// If client is still nil after reset attempt, skip this iteration
+			if client == nil {
+				log.Error().Str("key", item.Key).Msg("Memcached client is still nil after reset attempt")
+				continue
+			}
+		}
+		
+		err = client.Add(item)
 		if err == nil || err == memcache.ErrNotStored {
 			return err // ErrNotStored is normal for Add when key exists
 		}
@@ -424,7 +497,32 @@ func (r *ResilientMemcClient) Replace(item *memcache.Item) error {
 			time.Sleep(retryDelay)
 		}
 		
-		err = r.client.Replace(item)
+		// Safely access the client with a read lock
+		r.mu.Lock()
+		client := r.client
+		r.mu.Unlock()
+		
+		// Check if client is nil before using it
+		if client == nil {
+			log.Error().Str("key", item.Key).Msg("Memcached client is nil, attempting to recreate")
+			if resetErr := r.resetConnection(); resetErr != nil {
+				log.Error().Err(resetErr).Str("key", item.Key).Msg("Failed to recreate memcached connection")
+				continue
+			}
+			
+			// Get the client again after reset
+			r.mu.Lock()
+			client = r.client
+			r.mu.Unlock()
+			
+			// If client is still nil after reset attempt, skip this iteration
+			if client == nil {
+				log.Error().Str("key", item.Key).Msg("Memcached client is still nil after reset attempt")
+				continue
+			}
+		}
+		
+		err = client.Replace(item)
 		if err == nil || err == memcache.ErrNotStored {
 			return err // ErrNotStored is normal for Replace when key doesn't exist
 		}
@@ -454,7 +552,32 @@ func (r *ResilientMemcClient) Delete(key string) error {
 			time.Sleep(retryDelay)
 		}
 		
-		err = r.client.Delete(key)
+		// Safely access the client with a read lock
+		r.mu.Lock()
+		client := r.client
+		r.mu.Unlock()
+		
+		// Check if client is nil before using it
+		if client == nil {
+			log.Error().Str("key", key).Msg("Memcached client is nil, attempting to recreate")
+			if resetErr := r.resetConnection(); resetErr != nil {
+				log.Error().Err(resetErr).Str("key", key).Msg("Failed to recreate memcached connection")
+				continue
+			}
+			
+			// Get the client again after reset
+			r.mu.Lock()
+			client = r.client
+			r.mu.Unlock()
+			
+			// If client is still nil after reset attempt, skip this iteration
+			if client == nil {
+				log.Error().Str("key", key).Msg("Memcached client is still nil after reset attempt")
+				continue
+			}
+		}
+		
+		err = client.Delete(key)
 		if err == nil || err == memcache.ErrCacheMiss {
 			return err // ErrCacheMiss is normal for Delete when key doesn't exist
 		}
