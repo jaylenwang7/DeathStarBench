@@ -1,3 +1,9 @@
-cmake-build-debug-remote-host/*
-cmake-build-debug-remote/*
-wrk2/*
+*
+!/src/
+!/CMakeLists.txt
+!/cmake/
+!/datasets/
+!/gen-cpp/
+!/scripts/
+!/third_party/
+!/config/

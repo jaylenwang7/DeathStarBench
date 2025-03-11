@@ -14,6 +14,9 @@ spec:
     protocol: {{ .protocol }}
     {{- end}}
     targetPort: {{ .targetPort }}
+    {{- if .nodePort}}
+    nodePort: {{ .nodePort }}
+    {{- end}}
   {{- end}}
   selector:
     service: {{ .Values.name }}
