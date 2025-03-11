@@ -1,5 +1,6 @@
 name: nginx-web-server
 
+serviceType: NodePort
 ports:
   - port: 8080
     targetPort: 8080

@@ -5,7 +5,7 @@ kind: Service
 metadata:
   name: {{ .Values.name }}
 spec:
-  type: {{ .Values.type | default .Values.global.serviceType }}
+  type: {{ .Values.serviceType | default .Values.global.serviceType }}
   ports:
   {{- range .Values.ports }}
   - name: "{{ .port }}"
