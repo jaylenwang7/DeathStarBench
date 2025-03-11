@@ -96,7 +96,7 @@ if __name__ == '__main__':
   parser.add_argument("-m", "--movie", action="store", dest="movie_filename",
     type=str, default="../datasets/tmdb/movies.json")
   parser.add_argument("--server_address", action="store", dest="server_addr",
-    type=str, default="http://127.0.0.1:8080")
+    type=str, default="http://127.0.0.1:30080")
   args = parser.parse_args()
 
   with open(args.cast_filename, 'r') as cast_file:
