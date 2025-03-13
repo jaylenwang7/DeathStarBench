@@ -33,7 +33,7 @@ function _M.RegisterMovie()
 
   local client = GenericObjectPool:connection(MovieIdServiceClient,"movie-id-service" .. k8s_suffix ,9090)
 
-  client:RegisterMovieId(req_id, post.title, tostring(post.movie_id), carrier)
+  client:RegisterMovieId(req_id, post.title, tonumber(post.movie_id), carrier)
   GenericObjectPool:returnConnection(client)
 
   span:finish()

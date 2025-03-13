@@ -37,7 +37,7 @@ function _M.WritePlot()
   end
 
   local client = GenericObjectPool:connection(PlotServiceClient, "plot-service" .. k8s_suffix, 9090)
-  client:WritePlot(req_id, plot["plot_id"], plot["plot"], carrier)
+  client:WritePlot(req_id, tonumber(plot["plot_id"]), plot["plot"], carrier)
   GenericObjectPool:returnConnection(client)
 end
 

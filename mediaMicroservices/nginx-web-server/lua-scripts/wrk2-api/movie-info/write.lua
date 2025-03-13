@@ -55,7 +55,7 @@ function _M.WriteMovieInfo()
   local client = GenericObjectPool:connection(MovieInfoServiceClient, "movie-info-service" .. k8s_suffix , 9090)
   client:WriteMovieInfo(req_id, movie_info["movie_id"], movie_info["title"],
       casts, movie_info["plot_id"], movie_info["thumbnail_ids"],
-      movie_info["photo_ids"], movie_info["video_ids"], tostring(movie_info["avg_rating"]),
+      movie_info["photo_ids"], movie_info["video_ids"], tonumber(movie_info["avg_rating"]),
       movie_info["num_rating"], carrier)
   ngx.say(movie_info["avg_rating"])
   GenericObjectPool:returnConnection(client)

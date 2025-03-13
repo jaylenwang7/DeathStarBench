@@ -8,23 +8,55 @@ import time
 from datetime import datetime
 
 async def upload_cast_info(session, addr, cast):
-  async with session.post(addr + "/wrk2-api/cast-info/write", json=cast) as resp:
+  # Ensure all fields are properly typed strings
+  cast_data = {
+    "cast_info_id": str(cast["cast_info_id"]),
+    "name": str(cast["name"]) if cast["name"] else "",
+    "gender": "true" if cast["gender"] else "false",  # Convert boolean to string
+    "intro": str(cast["intro"]) if cast["intro"] else ""
+  }
+  async with session.post(addr + "/wrk2-api/cast-info/write", json=cast_data) as resp:
     return await resp.text()
 
 async def upload_plot(session, addr, plot):
-  async with session.post(addr + "/wrk2-api/plot/write", json=plot) as resp:
+  plot_data = {
+    "plot_id": plot["plot_id"],
+    "plot": plot["plot"]
+  }
+  async with session.post(addr + "/wrk2-api/plot/write", json=plot_data) as resp:
     return await resp.text()
 
 async def upload_movie_info(session, addr, movie):
-  async with session.post(addr + "/wrk2-api/movie-info/write", json=movie) as resp:
+  # Helper function to safely handle list items, filtering out None values
+  def safe_list(items):
+    if items is None:
+      return []
+    return [str(item) for item in items if item is not None]
+
+  # Convert movie dict to proper JSON format
+  json_data = {
+    "movie_id": movie["movie_id"],
+    "title": movie["title"],
+    "plot_id": str(movie["plot_id"]),
+    "thumbnail_ids": safe_list(movie["thumbnail_ids"]),
+    "photo_ids": safe_list(movie["photo_ids"]),
+    "video_ids": safe_list(movie["video_ids"]),
+    "avg_rating": float(movie["avg_rating"]),
+    "num_rating": int(movie["num_rating"]),
+    "casts": movie["casts"]   
+  }
+  async with session.post(addr + "/wrk2-api/movie-info/write", json=json_data) as resp:
     return await resp.text()
 
 async def register_movie(session, addr, movie):
-  params = {
+  form_data = {
     "title": movie["title"],
-    "movie_id": movie["movie_id"]
+    "movie_id": str(movie["movie_id"])
   }
-  async with session.post(addr + "/wrk2-api/movie/register", data=params) as resp:
+  headers = {
+    "Content-Type": "application/x-www-form-urlencoded"
+  }
+  async with session.post(addr + "/wrk2-api/movie/register", data=form_data, headers=headers) as resp:
     return await resp.text()
 
 async def write_cast_info(addr, raw_casts):
@@ -36,19 +68,29 @@ async def write_cast_info(addr, raw_casts):
       try:
         cast = dict()
         cast["cast_info_id"] = raw_cast["id"]
-        cast["name"] = raw_cast["name"]
-        cast["gender"] = True if raw_cast["gender"] == 2 else False
-        cast["intro"] = raw_cast["biography"]
+        cast["name"] = raw_cast["name"] if raw_cast.get("name") else ""
+        cast["gender"] = True if raw_cast.get("gender") == 2 else False
+        cast["intro"] = raw_cast["biography"] if raw_cast.get("biography") else ""
         task = asyncio.ensure_future(upload_cast_info(session, addr, cast))
         tasks.append(task)
         idx += 1
-      except:
-        print("Warning: cast info missing!")
+      except Exception as e:
+        print(f"Warning: cast info missing or invalid! Error: {str(e)}")
+        continue
       if idx % 200 == 0:
+        try:
+          resps = await asyncio.gather(*tasks)
+          print(idx, "casts finished")
+          tasks = []  # Clear tasks after processing batch
+        except Exception as e:
+          print(f"Error processing batch at index {idx}: {str(e)}")
+          tasks = []  # Clear failed tasks
+    if tasks:  # Process any remaining tasks
+      try:
         resps = await asyncio.gather(*tasks)
         print(idx, "casts finished")
-    resps = await asyncio.gather(*tasks)
-    print(idx, "casts finished")
+      except Exception as e:
+        print(f"Error processing final batch: {str(e)}")
 
 async def write_movie_info(addr, raw_movies):
   idx = 0
