@@ -26,7 +26,6 @@ spec:
         {{- range $cport := .ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }} 
-        {{- if .env }}
         {{- if not .disableReadinessProbe }}
         readinessProbe:
           tcpSocket:
@@ -50,6 +49,7 @@ spec:
               command: {{ $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
           {{- end }}
         {{- end }}
+        {{- if .env }}
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}

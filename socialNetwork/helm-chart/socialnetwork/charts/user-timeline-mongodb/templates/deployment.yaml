@@ -1,2 +1,2 @@
-{{ include "socialnetwork.templates.mongoDeployment" . }}
+{{ include "socialnetwork.templates.baseDeployment" . }}
  
