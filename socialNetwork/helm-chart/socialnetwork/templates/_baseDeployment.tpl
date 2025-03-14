@@ -62,14 +62,13 @@ spec:
           periodSeconds: {{ .readinessProbe.periodSeconds | default .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .readinessProbe.failureThreshold | default .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .readinessProbe.timeoutSeconds | default .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          successThreshold: {{ .readinessProbe.successThreshold | default $.Values.global.probe.successThreshold }}
           {{- else }}
           initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
           periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
-          {{- end }}
-          {{- if .readinessProbe.successThreshold }}
-          successThreshold: {{ .readinessProbe.successThreshold }}
+          successThreshold: {{ .probeSuccessThreshold | default $.Values.global.probe.successThreshold }}
           {{- end }}
         {{- end }}
         {{- if or .lifecycle $.Values.global.lifecycle }}
