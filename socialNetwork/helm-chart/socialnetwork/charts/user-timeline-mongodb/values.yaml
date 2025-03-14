@@ -14,6 +14,10 @@ container:
       - mongo
       - --eval
       - "db.adminCommand('ping')"
+    initialDelaySeconds: ~
+    periodSeconds: ~
+    failureThreshold: ~
+    timeoutSeconds: ~
   image:
     registry: docker.io
     repository: library
