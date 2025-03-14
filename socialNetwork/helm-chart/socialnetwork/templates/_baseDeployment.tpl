@@ -57,10 +57,17 @@ spec:
           tcpSocket:
             port: {{ .probePort | default (index .ports 0).containerPort }}
           {{- end }}
+          {{- if .readinessProbe }}
           initialDelaySeconds: {{ .readinessProbe.initialDelaySeconds | default .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
           periodSeconds: {{ .readinessProbe.periodSeconds | default .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .readinessProbe.failureThreshold | default .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .readinessProbe.timeoutSeconds | default .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          {{- else }}
+          initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
+          periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
+          failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
+          timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          {{- end }}
           {{- if .readinessProbe.successThreshold }}
           successThreshold: {{ .readinessProbe.successThreshold }}
           {{- end }}
