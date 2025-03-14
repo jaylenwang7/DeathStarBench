@@ -28,12 +28,42 @@ spec:
         {{ end }} 
         {{- if not .disableReadinessProbe }}
         readinessProbe:
+          {{- if .readinessProbe }}
+          {{- if .readinessProbe.exec }}
+          exec:
+            command:
+            {{- range $cmd := .readinessProbe.exec.command }}
+            - {{ $cmd }}
+            {{- end }}
+          {{- else if .readinessProbe.httpGet }}
+          httpGet:
+            path: {{ .readinessProbe.httpGet.path }}
+            port: {{ .readinessProbe.httpGet.port }}
+            {{- if .readinessProbe.httpGet.scheme }}
+            scheme: {{ .readinessProbe.httpGet.scheme }}
+            {{- end }}
+            {{- if .readinessProbe.httpGet.httpHeaders }}
+            httpHeaders:
+            {{- range $header := .readinessProbe.httpGet.httpHeaders }}
+            - name: {{ $header.name }}
+              value: {{ $header.value }}
+            {{- end }}
+            {{- end }}
+          {{- else }}
           tcpSocket:
             port: {{ .probePort | default (index .ports 0).containerPort }}
-          initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
-          periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
-          failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
-          timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          {{- end }}
+          {{- else }}
+          tcpSocket:
+            port: {{ .probePort | default (index .ports 0).containerPort }}
+          {{- end }}
+          initialDelaySeconds: {{ .readinessProbe.initialDelaySeconds | default .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
+          periodSeconds: {{ .readinessProbe.periodSeconds | default .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
+          failureThreshold: {{ .readinessProbe.failureThreshold | default .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
+          timeoutSeconds: {{ .readinessProbe.timeoutSeconds | default .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          {{- if .readinessProbe.successThreshold }}
+          successThreshold: {{ .readinessProbe.successThreshold }}
+          {{- end }}
         {{- end }}
         {{- if or .lifecycle $.Values.global.lifecycle }}
         lifecycle:
