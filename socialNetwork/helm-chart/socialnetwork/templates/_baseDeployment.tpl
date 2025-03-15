@@ -26,15 +26,50 @@ spec:
         {{- range $cport := .ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }} 
-        {{- if .env }}
         {{- if not .disableReadinessProbe }}
         readinessProbe:
+          {{- if .readinessProbe }}
+          {{- if .readinessProbe.exec }}
+          exec:
+            command:
+            {{- range $cmd := .readinessProbe.exec.command }}
+            - {{ $cmd }}
+            {{- end }}
+          {{- else if .readinessProbe.httpGet }}
+          httpGet:
+            path: {{ .readinessProbe.httpGet.path }}
+            port: {{ .readinessProbe.httpGet.port }}
+            {{- if .readinessProbe.httpGet.scheme }}
+            scheme: {{ .readinessProbe.httpGet.scheme }}
+            {{- end }}
+            {{- if .readinessProbe.httpGet.httpHeaders }}
+            httpHeaders:
+            {{- range $header := .readinessProbe.httpGet.httpHeaders }}
+            - name: {{ $header.name }}
+              value: {{ $header.value }}
+            {{- end }}
+            {{- end }}
+          {{- else }}
           tcpSocket:
             port: {{ .probePort | default (index .ports 0).containerPort }}
+          {{- end }}
+          {{- else }}
+          tcpSocket:
+            port: {{ .probePort | default (index .ports 0).containerPort }}
+          {{- end }}
+          {{- if .readinessProbe }}
+          initialDelaySeconds: {{ .readinessProbe.initialDelaySeconds | default .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
+          periodSeconds: {{ .readinessProbe.periodSeconds | default .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
+          failureThreshold: {{ .readinessProbe.failureThreshold | default .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
+          timeoutSeconds: {{ .readinessProbe.timeoutSeconds | default .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          successThreshold: {{ .readinessProbe.successThreshold | default $.Values.global.probe.successThreshold }}
+          {{- else }}
           initialDelaySeconds: {{ .probeInitialDelay | default $.Values.global.probe.initialDelaySeconds }}
           periodSeconds: {{ .probePeriodSeconds | default $.Values.global.probe.periodSeconds }}
           failureThreshold: {{ .probeFailureThreshold | default $.Values.global.probe.failureThreshold }}
           timeoutSeconds: {{ .probeTimeoutSeconds | default $.Values.global.probe.timeoutSeconds }}
+          successThreshold: {{ .probeSuccessThreshold | default $.Values.global.probe.successThreshold }}
+          {{- end }}
         {{- end }}
         {{- if or .lifecycle $.Values.global.lifecycle }}
         lifecycle:
@@ -50,6 +85,7 @@ spec:
               command: {{ $.Values.global.lifecycle.preStop.exec.command | toYaml | nindent 14 }}
           {{- end }}
         {{- end }}
+        {{- if .env }}
         env:
         {{- range $e := .env}}
         - name: {{ $e.name }}

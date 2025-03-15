@@ -8,6 +8,12 @@ container:
   args: 
   - --config
   - /social-network-microservices/config/mongod.conf
+  readinessProbe:
+    exec:
+      command:
+      - mongo
+      - --eval
+      - "db.adminCommand('ping')"
   image:
     registry: docker.io
     repository: library

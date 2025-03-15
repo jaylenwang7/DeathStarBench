@@ -57,6 +57,7 @@ global:
     periodSeconds: 1
     failureThreshold: 10
     timeoutSeconds: 2
+    successThreshold: 1
   lifecycle:
     preStop:
       enabled: true
