@@ -4,6 +4,7 @@
 #include <bson/bson.h>
 #include <mongoc.h>
 #include <sw/redis++/redis++.h>
+#include <chrono>
 
 #include <future>
 #include <iostream>
@@ -90,6 +91,8 @@ bool UserTimelineHandler::IsRedisReplicationEnabled() {
 void UserTimelineHandler::WriteUserTimeline(
     int64_t req_id, int64_t post_id, int64_t user_id, int64_t timestamp,
     const std::map<std::string, std::string> &carrier) {
+  auto start_time = std::chrono::steady_clock::now();
+  
   // Initialize a span
   TextMapReader reader(carrier);
   std::map<std::string, std::string> writer_text_map;
@@ -102,6 +105,10 @@ void UserTimelineHandler::WriteUserTimeline(
   mongoc_client_t *mongodb_client =
       mongoc_client_pool_pop(_mongodb_client_pool);
   if (!mongodb_client) {
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time);
+    LOG(error) << "Failed to pop a client from MongoDB pool after " 
+               << duration.count() << "ms - possible timeout";
     ServiceException se;
     se.errorCode = ErrorCode::SE_MONGODB_ERROR;
     se.message = "Failed to pop a client from MongoDB pool";
@@ -110,6 +117,10 @@ void UserTimelineHandler::WriteUserTimeline(
   auto collection = mongoc_client_get_collection(
       mongodb_client, "user-timeline", "user-timeline");
   if (!collection) {
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time);
+    LOG(error) << "Failed to create collection user-timeline from MongoDB after " 
+               << duration.count() << "ms - possible timeout";
     ServiceException se;
     se.errorCode = ErrorCode::SE_MONGODB_ERROR;
     se.message = "Failed to create collection user-timeline from MongoDB";
@@ -128,28 +139,40 @@ void UserTimelineHandler::WriteUserTimeline(
   auto update_span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_mongo_insert_client",
       {opentracing::ChildOf(&span->context())});
+  auto op_start_time = std::chrono::steady_clock::now();
   bool updated = mongoc_collection_find_and_modify(collection, query, nullptr,
                                                    update, nullptr, false, true,
                                                    true, &reply, &error);
   update_span->Finish();
 
   if (!updated) {
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - op_start_time);
+    if (error.code == MONGOC_ERROR_CLIENT_TIMEOUT || error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
+      LOG(error) << "MongoDB operation timeout in WriteUserTimeline for user " << user_id 
+                 << " after " << duration.count() << "ms: " << error.message;
+    }
+    
     // update the newly inserted document (upsert: false)
+    op_start_time = std::chrono::steady_clock::now();
     updated = mongoc_collection_find_and_modify(collection, query, nullptr,
                                                 update, nullptr, false, false,
                                                 true, &reply, &error);
     if (!updated) {
+      duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - op_start_time);
+      if (error.code == MONGOC_ERROR_CLIENT_TIMEOUT || error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
+        LOG(error) << "MongoDB retry operation timeout in WriteUserTimeline for user " << user_id 
+                   << " after " << duration.count() << "ms: " << error.message;
+      }
       LOG(error) << "Failed to update user-timeline for user " << user_id
-                 << " to MongoDB: " << error.message;
-      ServiceException se;
-      se.errorCode = ErrorCode::SE_MONGODB_ERROR;
-      se.message = error.message;
+                 << " to MongoDB after " << duration.count() << "ms: " << error.message;
       bson_destroy(update);
       bson_destroy(query);
       bson_destroy(&reply);
       mongoc_collection_destroy(collection);
       mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
-      throw se;
+      throw;
     }
   }
 
@@ -186,6 +209,8 @@ void UserTimelineHandler::WriteUserTimeline(
 void UserTimelineHandler::ReadUserTimeline(
     std::vector<Post> &_return, int64_t req_id, int64_t user_id, int start,
     int stop, const std::map<std::string, std::string> &carrier) {
+  auto start_time = std::chrono::steady_clock::now();
+  
   // Initialize a span
   TextMapReader reader(carrier);
   std::map<std::string, std::string> writer_text_map;
@@ -234,6 +259,10 @@ void UserTimelineHandler::ReadUserTimeline(
     mongoc_client_t *mongodb_client =
         mongoc_client_pool_pop(_mongodb_client_pool);
     if (!mongodb_client) {
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time);
+      LOG(error) << "Failed to pop a client from MongoDB pool after " 
+                 << duration.count() << "ms - possible timeout";
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;
       se.message = "Failed to pop a client from MongoDB pool";
@@ -242,6 +271,10 @@ void UserTimelineHandler::ReadUserTimeline(
     auto collection = mongoc_client_get_collection(
         mongodb_client, "user-timeline", "user-timeline");
     if (!collection) {
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time);
+      LOG(error) << "Failed to create collection user-timeline from MongoDB after " 
+                 << duration.count() << "ms - possible timeout";
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;
       se.message = "Failed to create collection user-timeline from MongoDB";
@@ -255,11 +288,24 @@ void UserTimelineHandler::ReadUserTimeline(
     auto find_span = opentracing::Tracer::Global()->StartSpan(
         "user_timeline_mongo_find_client",
         {opentracing::ChildOf(&span->context())});
+    auto find_start_time = std::chrono::steady_clock::now();
     mongoc_cursor_t *cursor =
         mongoc_collection_find_with_opts(collection, query, opts, nullptr);
     find_span->Finish();
     const bson_t *doc;
     bool found = mongoc_cursor_next(cursor, &doc);
+    if (!found) {
+      bson_error_t cursor_error;
+      if (mongoc_cursor_error(cursor, &cursor_error)) {
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - find_start_time);
+        if (cursor_error.code == MONGOC_ERROR_CLIENT_TIMEOUT || 
+            cursor_error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
+          LOG(error) << "MongoDB cursor timeout in ReadUserTimeline for user " << user_id 
+                     << " after " << duration.count() << "ms: " << cursor_error.message;
+        }
+      }
+    }
     if (found) {
       bson_iter_t iter_0;
       bson_iter_t iter_1;

@@ -3,6 +3,7 @@
 
 #include <mongoc.h>
 #include <bson/bson.h>
+#include <chrono>
 
 #define SERVER_SELECTION_TIMEOUT_MS 300
 
@@ -13,6 +14,8 @@ mongoc_client_pool_t* init_mongodb_client_pool(
     const std::string &service_name,
     uint32_t max_size
 ) {
+  auto start_time = std::chrono::steady_clock::now();
+  
   std::string addr = config_json[service_name + "-mongodb"]["addr"];
   int port = config_json[service_name + "-mongodb"]["port"];
   std::string uri_str = "mongodb://" + addr + ":" +
@@ -26,10 +29,13 @@ mongoc_client_pool_t* init_mongodb_client_pool(
       mongoc_uri_new_with_error(uri_str.c_str(), &error);
 
   if (!mongodb_uri) {
-    LOG(fatal) << "Error: failed to parse URI" << std::endl
-              << "error message: " << std::endl
-              << uri_str << std::endl
-              << error.message<< std::endl;
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start_time);
+    LOG(fatal) << "Error: failed to parse URI after " << duration.count() 
+               << "ms" << std::endl
+               << "error message: " << std::endl
+               << uri_str << std::endl
+               << error.message << std::endl;
     return nullptr;
   } else {
     if (config_json["ssl"]["enabled"]) {
@@ -40,8 +46,31 @@ mongoc_client_pool_t* init_mongodb_client_pool(
       mongoc_uri_set_option_as_bool(mongodb_uri, MONGOC_URI_TLSALLOWINVALIDHOSTNAMES, true);
     }
 
-    mongoc_client_pool_t *client_pool= mongoc_client_pool_new(mongodb_uri);
+    mongoc_client_pool_t *client_pool = mongoc_client_pool_new(mongodb_uri);
+    if (!client_pool) {
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time);
+      LOG(error) << "Failed to create MongoDB client pool with URI after " 
+                 << duration.count() << "ms: " << uri_str;
+      return nullptr;
+    }
+    
     mongoc_client_pool_max_size(client_pool, max_size);
+    
+    // Test connection and log timeout if it occurs
+    auto conn_start_time = std::chrono::steady_clock::now();
+    mongoc_client_t *client = mongoc_client_pool_try_pop(client_pool);
+    if (!client) {
+      auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - conn_start_time);
+      LOG(error) << "MongoDB server selection timeout after " << duration.count() 
+                 << "ms (timeout was set to " << SERVER_SELECTION_TIMEOUT_MS 
+                 << "ms) for service: " << service_name;
+      mongoc_client_pool_destroy(client_pool);
+      return nullptr;
+    }
+    mongoc_client_pool_push(client_pool, client);
+    
     return client_pool;
   }
 }
