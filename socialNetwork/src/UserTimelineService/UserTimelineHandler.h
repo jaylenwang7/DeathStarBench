@@ -148,10 +148,9 @@ void UserTimelineHandler::WriteUserTimeline(
   if (!updated) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - op_start_time);
-    if (error.code == MONGOC_ERROR_CLIENT_TIMEOUT || error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
-      LOG(error) << "MongoDB operation timeout in WriteUserTimeline for user " << user_id 
-                 << " after " << duration.count() << "ms: " << error.message;
-    }
+    LOG(error) << "MongoDB operation failed in WriteUserTimeline for user " << user_id 
+               << " after " << duration.count() << "ms with error code " 
+               << error.code << ": " << error.message;
     
     // update the newly inserted document (upsert: false)
     op_start_time = std::chrono::steady_clock::now();
@@ -161,12 +160,9 @@ void UserTimelineHandler::WriteUserTimeline(
     if (!updated) {
       duration = std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - op_start_time);
-      if (error.code == MONGOC_ERROR_CLIENT_TIMEOUT || error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
-        LOG(error) << "MongoDB retry operation timeout in WriteUserTimeline for user " << user_id 
-                   << " after " << duration.count() << "ms: " << error.message;
-      }
-      LOG(error) << "Failed to update user-timeline for user " << user_id
-                 << " to MongoDB after " << duration.count() << "ms: " << error.message;
+      LOG(error) << "MongoDB retry operation failed in WriteUserTimeline for user " << user_id
+                 << " after " << duration.count() << "ms with error code "
+                 << error.code << ": " << error.message;
       bson_destroy(update);
       bson_destroy(query);
       bson_destroy(&reply);
@@ -299,11 +295,9 @@ void UserTimelineHandler::ReadUserTimeline(
       if (mongoc_cursor_error(cursor, &cursor_error)) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - find_start_time);
-        if (cursor_error.code == MONGOC_ERROR_CLIENT_TIMEOUT || 
-            cursor_error.code == MONGOC_ERROR_SERVER_SELECTION_FAILURE) {
-          LOG(error) << "MongoDB cursor timeout in ReadUserTimeline for user " << user_id 
-                     << " after " << duration.count() << "ms: " << cursor_error.message;
-        }
+        LOG(error) << "MongoDB cursor operation failed in ReadUserTimeline for user " << user_id 
+                   << " after " << duration.count() << "ms with error code "
+                   << cursor_error.code << ": " << cursor_error.message;
       }
     }
     if (found) {
