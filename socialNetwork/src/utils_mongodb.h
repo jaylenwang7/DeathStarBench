@@ -101,12 +101,24 @@ bool validateMongoConnection(mongoc_client_t *client) {
         return false;
     }
     
+    // Create command for ping
     bson_t *ping = BCON_NEW("ping", BCON_INT32(1));
+    
+    // Create options with timeout
     bson_t *opts = BCON_NEW("maxTimeMS", BCON_INT32(PING_TIMEOUT_MS));
+    
     bson_t reply;
     bson_error_t error;
     
-    bool valid = mongoc_client_command_simple(client, "admin", ping, opts, &reply, &error);
+    // Use command_with_opts which accepts options
+    bool valid = mongoc_client_command_with_opts(
+        client,
+        "admin",
+        ping,
+        NULL,  // read_prefs can be NULL
+        opts,  // options with maxTimeMS
+        &reply,
+        &error);
     
     bson_destroy(ping);
     bson_destroy(opts);
