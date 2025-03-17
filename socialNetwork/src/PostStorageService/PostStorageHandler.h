@@ -58,7 +58,7 @@ void PostStorageHandler::StorePost(
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   mongoc_client_t *mongodb_client =
-      mongoc_client_pool_pop(_mongodb_client_pool);
+      mongo_client_pool_pop_safe(_mongodb_client_pool);
   if (!mongodb_client) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -235,7 +235,7 @@ void PostStorageHandler::ReadPost(
   } else {
     // If not cached in memcached
     mongoc_client_t *mongodb_client =
-        mongoc_client_pool_pop(_mongodb_client_pool);
+        mongo_client_pool_pop_safe(_mongodb_client_pool);
     if (!mongodb_client) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -484,7 +484,7 @@ void PostStorageHandler::ReadPosts(
   // Find the rest in MongoDB
   if (!post_ids_not_cached.empty()) {
     mongoc_client_t *mongodb_client =
-        mongoc_client_pool_pop(_mongodb_client_pool);
+        mongo_client_pool_pop_safe(_mongodb_client_pool);
     if (!mongodb_client) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;

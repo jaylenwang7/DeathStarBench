@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
       "social-graph", social_graph_addr, social_graph_port, 0,
       social_graph_conns, social_graph_timeout, social_graph_keepalive, config_json);
 
-  mongoc_client_t *mongodb_client = mongoc_client_pool_pop(mongodb_client_pool);
+  mongoc_client_t *mongodb_client = mongo_client_pool_pop_safe(mongodb_client_pool);
   if (!mongodb_client) {
     LOG(fatal) << "Failed to pop mongoc client";
     return EXIT_FAILURE;

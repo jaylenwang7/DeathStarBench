@@ -145,7 +145,7 @@ void UserMentionHandler::ComposeUserMentions(
     // Find the rest in MongoDB
     if (!usernames_not_cached.empty()) {
       mongoc_client_t *mongodb_client =
-          mongoc_client_pool_pop(_mongodb_client_pool);
+          mongo_client_pool_pop_safe(_mongodb_client_pool);
       if (!mongodb_client) {
         ServiceException se;
         se.errorCode = ErrorCode::SE_MONGODB_ERROR;
