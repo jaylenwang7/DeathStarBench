@@ -63,7 +63,7 @@ global:
       enabled: true
       exec:
         command: ["sh", "-c", "sleep 5"]
-  terminationGracePeriodSeconds: 20
+  terminationGracePeriodSeconds: 60
 
 mongodb-sharded:
   fullnameOverride: mongodb-sharded
