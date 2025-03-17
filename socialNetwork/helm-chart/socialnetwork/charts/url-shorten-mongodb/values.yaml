@@ -14,6 +14,14 @@ container:
       - mongo
       - --eval
       - "db.adminCommand('ping')"
+  lifecycle:
+    preStop:
+      enabled: true
+      exec:
+        command:
+        - "/bin/bash"
+        - "-c"
+        - "mongo admin --eval 'db.shutdownServer()' && sleep 10"
   image:
     registry: docker.io
     repository: library
