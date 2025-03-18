@@ -31,6 +31,7 @@ void sigintHandler(int sig) {
 
 int main(int argc, char* argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
   SetUpTracer("config/jaeger-config.yml", "post-storage-service");
 
