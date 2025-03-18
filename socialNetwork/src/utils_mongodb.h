@@ -142,7 +142,7 @@ mongoc_client_t* mongo_client_pool_pop_safe(mongoc_client_pool_t* pool) {
         return nullptr;
     }
     
-    mongoc_client_t* client = mongo_client_pool_pop(pool);
+    mongoc_client_t* client = mongoc_client_pool_pop(pool);
     if (!client) {
         return nullptr;
     }
