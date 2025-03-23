@@ -31,6 +31,7 @@ void sigintHandler(int sig) {
 
 int main(int argc, char* argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
   SetUpTracer("config/jaeger-config.yml", "post-storage-service");
 
@@ -55,7 +56,7 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  mongoc_client_t* mongodb_client = mongoc_client_pool_pop(mongodb_client_pool);
+  mongoc_client_t* mongodb_client = mongo_client_pool_pop_safe(mongodb_client_pool);
   if (!mongodb_client) {
     LOG(fatal) << "Failed to pop mongoc client";
     return EXIT_FAILURE;

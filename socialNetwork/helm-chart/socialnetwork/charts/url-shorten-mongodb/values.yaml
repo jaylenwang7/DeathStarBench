@@ -12,8 +12,20 @@ container:
     exec:
       command:
       - mongo
+      - --quiet
       - --eval
       - "db.adminCommand('ping')"
+  lifecycle:
+    preStop:
+      enabled: true
+      exec:
+        command:
+        - "/bin/bash"
+        - "-c"
+        - |
+          echo "PRESTOP_HOOK: Starting MongoDB graceful shutdown"
+          mongo admin --quiet --eval "db.adminCommand({ shutdown: 1, force: false, timeoutSecs: 10 })" && echo "PRESTOP_HOOK: MongoDB shutdown command completed successfully" || echo "PRESTOP_HOOK: MongoDB shutdown command failed but continuing"
+          echo "PRESTOP_HOOK: Finished MongoDB graceful shutdown process"
   image:
     registry: docker.io
     repository: library

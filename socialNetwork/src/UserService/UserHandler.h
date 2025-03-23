@@ -131,7 +131,7 @@ void UserHandler::RegisterUserWithId(
 
   // Store user info into mongodb
   mongoc_client_t *mongodb_client =
-      mongoc_client_pool_pop(_mongodb_client_pool);
+      mongo_client_pool_pop_safe(_mongodb_client_pool);
   if (!mongodb_client) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -279,7 +279,7 @@ void UserHandler::RegisterUser(
 
   // Store user info into mongodb
   mongoc_client_t *mongodb_client =
-      mongoc_client_pool_pop(_mongodb_client_pool);
+      mongo_client_pool_pop_safe(_mongodb_client_pool);
   if (!mongodb_client) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -428,7 +428,7 @@ void UserHandler::ComposeCreatorWithUsername(
   else {
     LOG(debug) << "user_id not cached in Memcached";
     mongoc_client_t *mongodb_client =
-        mongoc_client_pool_pop(_mongodb_client_pool);
+        mongo_client_pool_pop_safe(_mongodb_client_pool);
     if (!mongodb_client) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -613,7 +613,7 @@ void UserHandler::Login(std::string &_return, int64_t req_id,
     LOG(debug) << "Username: " << username << " NOT cached in Memcached";
 
     mongoc_client_t *mongodb_client =
-        mongoc_client_pool_pop(_mongodb_client_pool);
+        mongo_client_pool_pop_safe(_mongodb_client_pool);
     if (!mongodb_client) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;
@@ -796,7 +796,7 @@ int64_t UserHandler::GetUserId(
     // If not cached in memcached
     LOG(debug) << "user_id not cached in Memcached";
     mongoc_client_t *mongodb_client =
-        mongoc_client_pool_pop(_mongodb_client_pool);
+        mongo_client_pool_pop_safe(_mongodb_client_pool);
     if (!mongodb_client) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_MONGODB_ERROR;

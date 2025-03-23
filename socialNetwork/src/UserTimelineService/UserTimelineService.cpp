@@ -26,6 +26,7 @@ void sigintHandler(int sig) { exit(EXIT_SUCCESS); }
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
 
   // Command line options
@@ -91,7 +92,7 @@ int main(int argc, char *argv[]) {
       post_storage_conns, post_storage_timeout, post_storage_keepalive,
       config_json);
 
-  mongoc_client_t *mongodb_client = mongoc_client_pool_pop(mongodb_client_pool);
+  mongoc_client_t *mongodb_client = mongo_client_pool_pop_safe(mongodb_client_pool);
   if (!mongodb_client) {
     LOG(fatal) << "Failed to pop mongoc client";
     return EXIT_FAILURE;

@@ -150,6 +150,7 @@ void WorkerThread(std::string &addr, int port) {
 
 int main(int argc, char *argv[]) {
   signal(SIGINT, sigintHandler);
+  signal(SIGTERM, sigintHandler);
   init_logger();
 
   SetUpTracer("config/jaeger-config.yml", "write-home-timeline-service");
