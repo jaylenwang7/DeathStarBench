@@ -7,9 +7,9 @@ local RpcClientFactory = require 'RpcClientFactory'
 local ngx = ngx
 local GenericObjectPool = Object:new({
     __type = 'GenericObjectPool',
-    maxTotal = 100,
-    maxIdleTime = 10000,
-    timeout = 10000
+    maxTotal = 200,
+    maxIdleTime = 5000,
+    timeout = 100
 })
 function GenericObjectPool:init(conf)
 end
