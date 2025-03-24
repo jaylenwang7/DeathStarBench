@@ -10,7 +10,7 @@ local GenericObjectPool = Object:new({
     maxTotal = 100,
     maxIdleTime = 10000,
     timeout = 10000
-    })
+})
 function GenericObjectPool:init(conf)
 end
 --
@@ -40,15 +40,24 @@ end
 function GenericObjectPool:setMaxTotal(maxTotal)
     self.maxTotal = maxTotal
 end
+function GenericObjectPool:getmaxTotal()
+    return self.maxTotal
+end
 
 -- Keep alive timeout
 function GenericObjectPool:setmaxIdleTime(maxIdleTime)
     self.maxIdleTime = maxIdleTime
 end
+function GenericObjectPool:getmaxIdleTime()
+    return self.maxIdleTime
+end
 
 -- Keep RPC read/write timeout
 function GenericObjectPool:setTimeout(timeout)
     self.timeout = timeout
+end
+function GenericObjectPool:getTimeout()
+    return self.timeout
 end
 
 function GenericObjectPool:clear()

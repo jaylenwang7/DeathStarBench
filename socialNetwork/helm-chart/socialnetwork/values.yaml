@@ -7,6 +7,10 @@ global:
   repository: deathstarbench
   imageName: social-network-microservices
   defaultImageVersion: latest
+  objectPool:
+    timeout: 100       # RPC read/write timeout (ms)
+    maxTotal: 200      # Max connections in pool
+    maxIdleTime: 5000 # Connection reuse window (ms)
 
   git:
     repository: https://github.com/jaylenwang7/DeathStarBench.git

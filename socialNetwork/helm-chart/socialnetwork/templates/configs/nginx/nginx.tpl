@@ -111,9 +111,23 @@ http {
     config:set("cookie_ttl", 3600 * 24)
     config:set("ssl", false)
     config:set("initialized", true)
+    config:set("objectPoolTimeout", {{ .Values.global.objectPool.timeout }})
+    config:set("objectPoolMaxTotal", {{ .Values.global.objectPool.maxTotal }})
+    config:set("objectPoolMaxIdleTime", {{ .Values.global.objectPool.maxIdleTime }})
 
     local healthcheck = ngx.shared.healthcheck
     healthcheck:set("status", "starting")
+
+    -- Configure connection pool AFTER requiring modules
+    GenericObjectPool:setTimeout(tonumber(config:get("objectPoolTimeout")))
+    GenericObjectPool:setMaxTotal(tonumber(config:get("objectPoolMaxTotal")))
+    GenericObjectPool:setmaxIdleTime(tonumber(config:get("objectPoolMaxIdleTime")))
+
+    ngx.log(ngx.NOTICE, "ObjectPool configured - ",
+      "timeout:", config:get("objectPoolTimeout"), "ms, ",
+      "maxTotal:", config:get("objectPoolMaxTotal"), ", ",
+      "maxIdleTime:", config:get("objectPoolMaxIdleTime"), "ms"
+    )
   }
 
   server {
