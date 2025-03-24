@@ -65,7 +65,7 @@ http {
       end
   }
 
-  access_log /usr/local/openresty/nginx/logs/access.log detailed buffer=32k flush=1s;
+  access_log /dev/stdout detailed buffer=32k flush=5s;
 
   sendfile        on;
   tcp_nopush      on;
@@ -124,9 +124,9 @@ http {
     GenericObjectPool:setmaxIdleTime(tonumber(config:get("objectPoolMaxIdleTime")))
 
     ngx.log(ngx.NOTICE, "ObjectPool configured - ",
-      "timeout:", config:get("objectPoolTimeout"), "ms, ",
-      "maxTotal:", config:get("objectPoolMaxTotal"), ", ",
-      "maxIdleTime:", config:get("objectPoolMaxIdleTime"), "ms"
+      "timeout:", GenericObjectPool:getTimeout(), "ms, ",
+      "maxTotal:", GenericObjectPool:getmaxTotal(), ", ",
+      "maxIdleTime:", GenericObjectPool:getmaxIdleTime(), "ms"
     )
   }
 

@@ -9,7 +9,7 @@ container:
     registry: docker.io
     repository: jaylenwang
     name: media-frontend
-    tag: xenial-v2
+    tag: xenial-v1
   name: media-frontend
   ports: 
   - containerPort: 8081
