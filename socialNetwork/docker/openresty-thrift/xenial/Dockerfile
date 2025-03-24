@@ -122,7 +122,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
     && make install \
     && cd /tmp \
     && rm -rf lua-resty-hmac \
-
   ### Add Jaeger plugin
     && curl -fSL https://github.com/jaegertracing/jaeger-client-cpp/archive/refs/tags/v${JAEGER_TRACING_VERSION}.tar.gz -o v${JAEGER_TRACING_VERSION}.tar.gz \
     && tar xf v${JAEGER_TRACING_VERSION}.tar.gz \
@@ -208,7 +207,7 @@ RUN luarocks install long \
 
 # Add after the luarocks install section and before the nginx.conf copy
 RUN cd /tmp \
-    && git clone https://github.com/jaylenwang7/DeathStarBench.git \
+    && git clone -b test-online https://github.com/jaylenwang7/DeathStarBench.git \
     && mkdir -p /gen-lua \
     && mkdir -p /usr/local/openresty/nginx/lua-scripts \
     && mkdir -p /usr/local/openresty/nginx/pages \
