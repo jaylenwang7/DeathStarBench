@@ -6,7 +6,7 @@ load_module modules/ngx_http_opentracing_module.so;
 # nginx process
 worker_processes  auto;
 
-# error_log  logs/error.log;
+error_log /dev/stdout debug;
 
 # Checklist: Make sure that worker_connections * worker_processes
 # is greater than the total connections between the client and Nginx. 
