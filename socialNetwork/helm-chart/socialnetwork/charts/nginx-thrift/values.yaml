@@ -13,7 +13,7 @@ container:
     registry: docker.io
     repository: jaylenwang
     name: openresty-thrift
-    tag: xenial-v2
+    tag: xenial-v3
   name: nginx-thrift
   ports: 
   - containerPort: 8080
