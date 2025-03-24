@@ -124,9 +124,9 @@ http {
     GenericObjectPool:setmaxIdleTime(tonumber(config:get("objectPoolMaxIdleTime")))
 
     ngx.log(ngx.NOTICE, "ObjectPool configured - ",
-      "timeout:", config:get("objectPoolTimeout"), "ms, ",
-      "maxTotal:", config:get("objectPoolMaxTotal"), ", ",
-      "maxIdleTime:", config:get("objectPoolMaxIdleTime"), "ms"
+      "timeout:", GenericObjectPool:getTimeout(), "ms, ",
+      "maxTotal:", GenericObjectPool:getmaxTotal(), ", ",
+      "maxIdleTime:", GenericObjectPool:getmaxIdleTime(), "ms"
     )
   }
 
