@@ -131,7 +131,7 @@ http {
   }
 
   server {
-    listen       8080 reuseport;
+    listen 8080 reuseport backlog=16384;
     server_name  localhost;
 
     location /nginx-health {
