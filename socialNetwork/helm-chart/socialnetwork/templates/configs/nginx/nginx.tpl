@@ -67,8 +67,6 @@ http {
       end
   }
 
-  access_log /dev/stdout detailed buffer=32k flush=5s;
-
   sendfile        on;
   tcp_nopush      on;
   tcp_nodelay     on;
