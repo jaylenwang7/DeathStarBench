@@ -6,7 +6,7 @@ load_module modules/ngx_http_opentracing_module.so;
 # nginx process
 worker_processes  auto;
 
-error_log /dev/stdout debug;
+error_log off;
 
 # Checklist: Make sure that worker_connections * worker_processes
 # is greater than the total connections between the client and Nginx. 
@@ -37,18 +37,20 @@ http {
                   '"$http_user_agent" "$http_x_forwarded_for"';
   # access_log  logs/access.log  main;
 
-  log_format detailed escape=json '{'
-    '"time_local":"$time_local",'
-    '"remote_addr":"$remote_addr",'
-    '"request":"$request",'
-    '"status": "$status",'
-    '"request_time":"$request_time",'
-    '"upstream_connect_time":"$upstream_connect_time",'
-    '"upstream_header_time":"$upstream_header_time",'
-    '"upstream_response_time":"$upstream_response_time",'
-    '"connection":"$connection",'
-    '"connection_requests":"$connection_requests"'
-  '}';
+  # log_format detailed escape=json '{'
+  #   '"time_local":"$time_local",'
+  #   '"remote_addr":"$remote_addr",'
+  #   '"request":"$request",'
+  #   '"status": "$status",'
+  #   '"request_time":"$request_time",'
+  #   '"upstream_connect_time":"$upstream_connect_time",'
+  #   '"upstream_header_time":"$upstream_header_time",'
+  #   '"upstream_response_time":"$upstream_response_time",'
+  #   '"connection":"$connection",'
+  #   '"connection_requests":"$connection_requests"'
+  # '}';
+
+  # access_log /dev/stdout detailed buffer=32k flush=5s;
 
   access_by_lua_block {
       local f = io.open("/tmp/nginx_status", "r")
