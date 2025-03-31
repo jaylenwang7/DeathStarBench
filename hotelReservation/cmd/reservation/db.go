@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 	
 	"github.com/rs/zerolog/log"
@@ -23,6 +25,15 @@ type Number struct {
 	Number  int    `bson:"numberOfRoom"`
 }
 
+func getEnvInt(key string, defaultValue int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
 func initializeDatabase(url string) (*mongo.Client, func()) {
     log.Info().Msg("Connecting to MongoDB...")
     
@@ -32,8 +43,25 @@ func initializeDatabase(url string) (*mongo.Client, func()) {
     maxRetries := 10
     initialRetryDelay := 5 * time.Second
     
+    // Get timeout values from environment variables
+    serverSelectionTimeout := time.Duration(getEnvInt("MONGO_SERVER_SELECTION_TIMEOUT", 5)) * time.Second
+    connectTimeout := time.Duration(getEnvInt("MONGO_CONNECT_TIMEOUT", 10)) * time.Second
+    socketTimeout := time.Duration(getEnvInt("MONGO_SOCKET_TIMEOUT", 30)) * time.Second
+    maxConnIdleTime := time.Duration(getEnvInt("MONGO_MAX_CONN_IDLE_TIME", 1800)) * time.Second
+    
+    // Log MongoDB connection parameters
+    log.Info().Msgf("MongoDB connection parameters:")
+    log.Info().Msgf("  - Server Selection Timeout: %v", serverSelectionTimeout)
+    log.Info().Msgf("  - Connect Timeout: %v", connectTimeout)
+    log.Info().Msgf("  - Socket Timeout: %v", socketTimeout)
+    log.Info().Msgf("  - Max Connection Idle Time: %v", maxConnIdleTime)
+    
     // Connection options
-    opts := options.Client().ApplyURI(uri)
+    opts := options.Client().ApplyURI(uri).
+        SetServerSelectionTimeout(serverSelectionTimeout).
+        SetConnectTimeout(connectTimeout).
+        SetSocketTimeout(socketTimeout).
+        SetMaxConnIdleTime(maxConnIdleTime)
     
     // Retry loop for connection
     var client *mongo.Client

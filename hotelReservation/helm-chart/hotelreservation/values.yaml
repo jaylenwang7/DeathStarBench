@@ -29,6 +29,11 @@ global:
       JAEGER_SAMPLE_RATIO: "1.0"
       MEMC_TIMEOUT: "2"
       GC: "100"
+      # MongoDB connection timeouts (in seconds)
+      MONGO_SERVER_SELECTION_TIMEOUT: "5"
+      MONGO_CONNECT_TIMEOUT: "10"
+      MONGO_SOCKET_TIMEOUT: "30"
+      MONGO_MAX_CONN_IDLE_TIME: "1800"
   affinity: {}
   tolerations: []
   nodeSelector: {}
