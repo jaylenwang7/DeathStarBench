@@ -134,7 +134,7 @@ bool validateMongoConnection(mongoc_client_t *client) {
     return valid;
 }
 
-// Safe version of mongo_client_pool_pop that includes validation
+// Safe version of mongoc_client_pool_pop that includes validation
 mongoc_client_t* mongo_client_pool_pop_safe(mongoc_client_pool_t* pool) {
     // Fast fail if circuit is open
     if (mongodb_circuit.isOpen()) {
