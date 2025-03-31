@@ -95,7 +95,7 @@ void UrlShortenHandler::ComposeUrls(
 
     mongo_future = std::async(
         std::launch::async, [&](){
-          mongoc_client_t *mongodb_client = mongo_client_pool_pop_safe(
+          mongoc_client_t *mongodb_client = mongo_client_pool_pop(
               _mongodb_client_pool);
           if (!mongodb_client) {
             ServiceException se;
