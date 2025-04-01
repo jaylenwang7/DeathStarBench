@@ -11,6 +11,13 @@ import urllib3
 
 import locust.stats
 
+# Import user pool implementation if available
+try:
+    from locust_user_pool import UserPool, RPSBasedPooledShape, create_pooled_load_test
+    user_pool_available = True
+except ImportError:
+    user_pool_available = False
+
 def load_stats_config():
     """
     Load Locust stats configuration from a JSON file if it exists,
@@ -49,7 +56,9 @@ def load_stats_config():
         # Add new spawn rate config with 100 as default
         "SPAWN_RATE": 100,
         # Add new random seed config, None means use time.time()
-        "RANDOM_SEED": None
+        "RANDOM_SEED": None,
+        # User pool enabled flag
+        "USER_POOL_ENABLED": False
     }
 
     # Try to load config from JSON file
@@ -81,6 +90,27 @@ def load_stats_config():
 
     return default_config
 
+def is_user_pool_enabled():
+    """
+    Check if user pool mode is enabled in the configuration.
+    """
+    # Default to disabled
+    default_enabled = False
+    
+    # Get config from previously loaded app_config or load it again
+    config_path = os.path.join(os.path.dirname(__file__), 'locust_stats_config.json')
+    
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                # Check if USER_POOL_ENABLED exists in config
+                return config.get("USER_POOL_ENABLED", default_enabled)
+    except Exception as e:
+        print(f"Error checking user pool config: {e}")
+    
+    return default_enabled
+
 def print_config(config):
     """Print the current configuration settings"""
     print("\n=== Locust Configuration ===")
@@ -93,6 +123,7 @@ def print_config(config):
     print(f"CSV Stats Flush Interval: {config['CSV_STATS_FLUSH_INTERVAL_SEC']} seconds")
     print(f"Response Time Percentile Window: {config['CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW']} seconds")
     print(f"Percentiles to Report: {config['PERCENTILES_TO_REPORT']}")
+    print(f"User Pool Enabled: {config.get('USER_POOL_ENABLED', False)}")
     print("===========================\n")
 
 # Load config and get request rate
@@ -101,6 +132,7 @@ print_config(app_config)
 request_rate = app_config["REQUEST_RATE_PER_USER"]
 spawn_rate = app_config["SPAWN_RATE"]  # Get spawn rate from config
 wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
+user_pool_enabled = app_config.get("USER_POOL_ENABLED", False)
 
 # Initialize random seed based on config
 seed = app_config["RANDOM_SEED"]
@@ -290,10 +322,45 @@ def constant_pacing(wait_time):
 
 class SocialMediaUser(FastHttpUser):
     wait_time = constant_pacing(wait_time_seconds)
+    
+    # Configure connection pooling
+    client_args = {
+        "limits": {
+            "max_connections": 10000,
+            "max_keepalive_connections": 5000,
+            "keepalive_expiry": 300.0
+        }
+    }
+    
+    # Add these properties for better connection management
+    connection_timeout = 60.0
+    network_timeout = 60.0
+    insecure = True  # Only if using self-signed certs
+    max_redirects = 5
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add a flag to control if this user is active (for user pool mode)
+        self.active = True
+    
+    def on_start(self):
+        """Called when a User starts running"""
+        # Pre-establish connections
+        if hasattr(self, 'client'):
+            try:
+                # Make a lightweight request to warm up connection
+                self.client.get("/healthcheck", catch_response=True)
+            except Exception:
+                # Ignore errors during warmup
+                pass
 
     @task(100)
     @tag('compose_post')
     def compose_post(self):
+        # Skip task if user is not active (in user pool mode)
+        if hasattr(self, 'active') and not self.active:
+            return
+            
         global image_names
         global image_data
         #----------------- contents -------------------#
@@ -339,7 +406,7 @@ class SocialMediaUser(FastHttpUser):
 
         params = {}
 
-        url = '/wrk2-api/post/compose'
+        url = '/api/v1/preserveservice/preserve'
         img = random.choice(image_names)
         body = {}
         if num_media > 0:
@@ -368,7 +435,8 @@ class SocialMediaUser(FastHttpUser):
 # Read RPS values from the 'rps.txt' file
 RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 
-class CustomShape(LoadTestShape):
+# Original CustomShape implementation (used if user pool is disabled)
+class StandardCustomShape(LoadTestShape):
     time_limit = len(RPS)
     spawn_rate = spawn_rate
 
@@ -378,3 +446,24 @@ class CustomShape(LoadTestShape):
             user_count = RPS[run_time]
             return (user_count, self.spawn_rate)
         return None
+
+# Choose between standard implementation and user pool implementation
+if user_pool_enabled and user_pool_available:
+    print("User pool mode is ENABLED! Creating pre-warmed user pool.")
+    
+    # Create the user pool and load test shape
+    user_pool, pooled_shape = create_pooled_load_test(
+        user_class=SocialMediaUser,
+        rps_values=RPS,
+        spawn_rate=spawn_rate,
+        request_rate_per_user=request_rate
+    )
+    
+    # Replace the original CustomShape with the pooled version
+    CustomShape = pooled_shape
+else:
+    if not user_pool_enabled:
+        print("User pool mode is DISABLED. Using standard load test.")
+    else:
+        print("User pool mode is ENABLED but unavailable. Using standard load test.")
+    CustomShape = StandardCustomShape
