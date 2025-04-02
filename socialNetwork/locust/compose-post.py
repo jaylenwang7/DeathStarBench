@@ -20,7 +20,7 @@ next_user_id = 0
 MAX_USER_COUNT = 0
 ACTIVE_USER_COUNT = 0
 # Flag to determine behavior mode
-CREATE_ALL_USERS_AT_START = False
+ENABLE_USER_POOL = False
 
 def load_stats_config():
     """
@@ -109,7 +109,7 @@ def print_config(config):
     print(f"CSV Stats Flush Interval: {config['CSV_STATS_FLUSH_INTERVAL_SEC']} seconds")
     print(f"Response Time Percentile Window: {config['CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW']} seconds")
     print(f"Percentiles to Report: {config['PERCENTILES_TO_REPORT']}")
-    print(f"Create All Users At Start: {config['CREATE_ALL_USERS_AT_START']}")
+    print(f"Create All Users At Start: {config['ENABLE_USER_POOL']}")
     print("===========================\n")
 
 # Load config and get request rate
@@ -118,7 +118,7 @@ print_config(app_config)
 request_rate = app_config["REQUEST_RATE_PER_USER"]
 spawn_rate = app_config["SPAWN_RATE"]  # Get spawn rate from config
 wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
-CREATE_ALL_USERS_AT_START = app_config["CREATE_ALL_USERS_AT_START"]
+ENABLE_USER_POOL = app_config["ENABLE_USER_POOL"]
 
 # Initialize random seed based on config
 seed = app_config["RANDOM_SEED"]
@@ -174,7 +174,7 @@ def register_user(user):
 # Check if a user is active based on its ID
 def is_user_active(user):
     """Check if this user should be active"""
-    if not CREATE_ALL_USERS_AT_START:
+    if not ENABLE_USER_POOL:
         return True
     
     user_id = register_user(user)
@@ -371,10 +371,10 @@ class CustomShape(LoadTestShape):
         global MAX_USER_COUNT
         global original_task_picker
         
-        if CREATE_ALL_USERS_AT_START:
+        if ENABLE_USER_POOL:
             # When using user activation mode, find the maximum RPS needed
             MAX_USER_COUNT = max(RPS)
-            print(f"Running in CREATE_ALL_USERS_AT_START mode with {MAX_USER_COUNT} total users")
+            print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT} total users")
             
             # Patch the task picker to intercept task selection for inactive users
             # This needs to be done once when the shape class is initialized
@@ -389,7 +389,7 @@ class CustomShape(LoadTestShape):
         if run_time < self.time_limit:
             target_user_count = RPS[run_time]
             
-            if CREATE_ALL_USERS_AT_START:
+            if ENABLE_USER_POOL:
                 # In user activation mode, we update the active user count
                 with activation_lock:
                     old_count = ACTIVE_USER_COUNT
@@ -421,7 +421,7 @@ def on_locust_init(environment, **kwargs):
     """Initialize the locust environment with our custom hooks"""
     global original_task_picker
     
-    if CREATE_ALL_USERS_AT_START:
+    if ENABLE_USER_POOL:
         # Verify that our task picker patch can be applied
         if not hasattr(FastHttpUser, 'tasks'):
             logging.warning("Cannot patch task picker, User.tasks not found. User activation may not work correctly.")
