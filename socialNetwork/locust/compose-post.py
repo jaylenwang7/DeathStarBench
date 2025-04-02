@@ -132,7 +132,10 @@ image_dir  = script_dir / 'base64_images'
 image_data = {}
 image_names = []
 
-logging.basicConfig(level=logging.DEBUG)
+LOG_LEVEL = logging.DEBUG
+logging.basicConfig(level=LOG_LEVEL)
+
+print(f"Logging level set to {LOG_LEVEL}")
 
 # data
 if not image_dir.exists():
@@ -323,14 +326,14 @@ class SocialMediaUser(FastHttpUser):
     @tag('compose_post')
     def compose_post(self):
         # Add debug logging to see if this method is being called
-        logging.debug(f"compose_post called for user {id(self)}")
+        logging.info(f"compose_post called for user {id(self)}")
         
         # Check if user is active
         active = is_user_active(self)
-        logging.debug(f"User {id(self)} active status: {active}")
+        logging.info(f"User {id(self)} active status: {active}")
         
         if not active:
-            logging.debug(f"User {id(self)} is inactive, skipping request")
+            logging.info(f"User {id(self)} is inactive, skipping request")
             return
             
         global image_names
