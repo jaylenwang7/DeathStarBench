@@ -322,10 +322,15 @@ class SocialMediaUser(FastHttpUser):
     @task(100)
     @tag('compose_post')
     def compose_post(self):
-        # Simply check if this user is active and return immediately if not
-        # This is the key change - no HTTP request will be made for inactive users
-        # Therefore, no statistics will be recorded for them
-        if not is_user_active(self):
+        # Add debug logging to see if this method is being called
+        logging.debug(f"compose_post called for user {id(self)}")
+        
+        # Check if user is active
+        active = is_user_active(self)
+        logging.debug(f"User {id(self)} active status: {active}")
+        
+        if not active:
+            logging.debug(f"User {id(self)} is inactive, skipping request")
             return
             
         global image_names
