@@ -132,7 +132,7 @@ image_dir  = script_dir / 'base64_images'
 image_data = {}
 image_names = []
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 # data
 if not image_dir.exists():
