@@ -19,6 +19,8 @@ activation_lock = gevent.lock.RLock()
 # Global variables for tracking active users
 MAX_USER_COUNT = multiprocessing.Value('i', 0)  # Shared max user count
 ACTIVE_USER_COUNT = multiprocessing.Value('i', 0)  # Shared active user count
+# Value to keep track of total worker count
+WORKER_COUNT = multiprocessing.Value('i', 1)  # Default to 1, will be updated
 # Flag to determine behavior mode
 ENABLE_USER_POOL = False
 
@@ -177,14 +179,18 @@ def register_user(user):
     user_id_key = id(user)
     
     if user_id_key not in user_registry:
-        # Create a unique ID by combining worker_id and local counter
-        # This gives each worker a separate range of IDs (worker_id * 1000000 + local_counter)
-        unique_id = (worker_id * 1000000) + local_user_counter
+        # Interleaved ID assignment:
+        # - Each worker gets every Nth user ID, where N = total number of workers
+        # - Worker 0 gets IDs 0, N, 2N, 3N, ...
+        # - Worker 1 gets IDs 1, N+1, 2N+1, 3N+1, ...
+        # - And so on
+        worker_count = max(1, WORKER_COUNT.value)
+        unique_id = worker_id + (local_user_counter * worker_count)
         local_user_counter += 1
         
         # Store in local registry
         user_registry[user_id_key] = unique_id
-        logging.info(f"Worker {worker_id}: Registering user {id(user)} to ID {unique_id}")
+        logging.info(f"Worker {worker_id}/{worker_count}: Registered user ID {unique_id}")
     
     return user_registry[user_id_key]
 
@@ -423,14 +429,22 @@ RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 # Initialize user activation on startup
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
-    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id
+    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id, WORKER_COUNT
     
     # Set worker ID based on environment
     if hasattr(environment, "runner") and environment.runner:
         if hasattr(environment.runner, "worker_index"):
             worker_id = environment.runner.worker_index
+            # Update worker count if we're running in distributed mode
+            if hasattr(environment.runner, "worker_count"):
+                with WORKER_COUNT.get_lock():
+                    WORKER_COUNT.value = max(environment.runner.worker_count, 1)
         elif hasattr(environment.runner, "client_id"):
             worker_id = environment.runner.client_id
+            # Try to get worker count
+            if hasattr(environment.runner, "worker_count"):
+                with WORKER_COUNT.get_lock():
+                    WORKER_COUNT.value = max(environment.runner.worker_count, 1)
         else:
             # Fallback to PID if worker index not available
             worker_id = os.getpid() % 1000
@@ -438,7 +452,7 @@ def on_locust_init(environment, **kwargs):
         # Standalone mode - use PID modulo
         worker_id = os.getpid() % 1000
         
-    logging.info(f"Initializing worker with ID: {worker_id}")
+    logging.info(f"Initializing worker {worker_id} (of {WORKER_COUNT.value} workers)")
     
     if ENABLE_USER_POOL:
         MAX_USER_COUNT.value = max(RPS)
