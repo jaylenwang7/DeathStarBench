@@ -28,8 +28,9 @@ ENABLE_USER_POOL = False
 user_registry = {}
 # Local counter for sequential user IDs within this process
 local_user_counter = 0
-# Worker index - will be set during initialization
-worker_id = 0
+# Worker information - will be set during initialization
+worker_id = None
+worker_count = None
 
 def load_stats_config():
     """
@@ -170,21 +171,33 @@ for img in os.listdir(str(image_dir)):
     with open(str(full_path), 'r') as f:
         image_data[img] = f.read()
 
+# Wait for worker information to be properly initialized
+def wait_for_worker_init():
+    """Wait until worker_id and worker_count are initialized"""
+    global worker_id, worker_count
+    while worker_id is None or worker_count is None:
+        time.sleep(0.1)
+    return worker_id, worker_count
+
 # Enhanced user registration system
 def register_user(user):
     """Register a user and assign it a sequential ID"""
-    global user_registry, local_user_counter
+    global user_registry, local_user_counter, worker_id, worker_count
+    
+    # Make sure worker info is initialized
+    if worker_id is None or worker_count is None:
+        w_id, w_count = wait_for_worker_init()
+        worker_id = w_id
+        worker_count = w_count
     
     # Use object ID as local key
     user_id_key = id(user)
     
     if user_id_key not in user_registry:
-        # Interleaved ID assignment:
-        # - Each worker gets every Nth user ID, where N = total number of workers
-        # - Worker 0 gets IDs 0, N, 2N, 3N, ...
-        # - Worker 1 gets IDs 1, N+1, 2N+1, 3N+1, ...
-        # - And so on
-        worker_count = max(1, WORKER_COUNT.value)
+        # True interleaving with worker_id as offset
+        # Worker 0 gets IDs 0, W, 2W, 3W, ... (where W = total workers)
+        # Worker 1 gets IDs 1, W+1, 2W+1, 3W+1, ... 
+        # This ensures perfect interleaving
         unique_id = worker_id + (local_user_counter * worker_count)
         local_user_counter += 1
         
@@ -429,35 +442,59 @@ RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 # Initialize user activation on startup
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
-    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id, WORKER_COUNT
+    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id, worker_count
     
     # Set worker ID based on environment
     if hasattr(environment, "runner") and environment.runner:
         if hasattr(environment.runner, "worker_index"):
             worker_id = environment.runner.worker_index
-            # Update worker count if we're running in distributed mode
-            if hasattr(environment.runner, "worker_count"):
-                with WORKER_COUNT.get_lock():
-                    WORKER_COUNT.value = max(environment.runner.worker_count, 1)
         elif hasattr(environment.runner, "client_id"):
             worker_id = environment.runner.client_id
-            # Try to get worker count
-            if hasattr(environment.runner, "worker_count"):
-                with WORKER_COUNT.get_lock():
-                    WORKER_COUNT.value = max(environment.runner.worker_count, 1)
         else:
             # Fallback to PID if worker index not available
             worker_id = os.getpid() % 1000
     else:
         # Standalone mode - use PID modulo
         worker_id = os.getpid() % 1000
-        
-    logging.info(f"Initializing worker {worker_id} (of {WORKER_COUNT.value} workers)")
+    
+    # Wait for the runner to fully initialize before proceeding
+    gevent.sleep(0.5)
     
     if ENABLE_USER_POOL:
         MAX_USER_COUNT.value = max(RPS)
         ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value  # Initialize active count to max
         logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT.value}, ACTIVE_USER_COUNT={ACTIVE_USER_COUNT.value}")
+
+# Update worker count when spawning starts
+@events.spawning_complete.add_listener
+def on_spawning_complete(user_count, **kwargs):
+    global worker_count
+    
+    # Now that spawning is complete, we can get accurate worker count
+    if worker_count is None:
+        from locust.env import Environment
+        env = Environment.get_current_environment()
+        if env and env.runner and hasattr(env.runner, "worker_count"):
+            worker_count = max(env.runner.worker_count, 1)
+        else:
+            worker_count = 1
+        
+        logging.info(f"Worker {worker_id} determined final worker count: {worker_count}")
+
+# Alternative way to get worker count from client_ready event
+@events.client_ready.add_listener
+def on_client_ready(**kwargs):
+    global worker_count
+    
+    if worker_count is None:
+        from locust.env import Environment
+        env = Environment.get_current_environment()
+        if env and env.runner and hasattr(env.runner, "worker_count"):
+            worker_count = max(env.runner.worker_count, 1)
+        else:
+            worker_count = 1
+        
+        logging.info(f"Worker {worker_id} determined client_ready worker count: {worker_count}")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
