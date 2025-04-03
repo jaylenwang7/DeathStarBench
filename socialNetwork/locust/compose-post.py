@@ -437,59 +437,95 @@ RPS: List[int] = list(map(int, Path('rps.txt').read_text().splitlines()))
 # Initialize user activation on startup
 @events.init.add_listener
 def on_locust_init(environment: Environment, **kwargs: Any) -> None:
-    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id
+    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id, worker_count
     
     # Set worker ID based on environment
     if hasattr(environment, "runner") and environment.runner:
+        # Detect if we're a worker
         if hasattr(environment.runner, "worker_index"):
             worker_id = environment.runner.worker_index
-        elif hasattr(environment.runner, "client_id"):
-            worker_id = environment.runner.client_id
+            logging.info(f"Worker {worker_id} initialized with worker_index")
+            # Worker should get worker_count at startup
+            if hasattr(environment.runner, "worker_count"):
+                worker_count = environment.runner.worker_count
+                logging.info(f"Worker {worker_id} of {worker_count} initialized with worker_count")
+            
+            # Register message handler for worker count updates
+            if hasattr(environment.runner, "register_message"):
+                environment.runner.register_message("worker_count_update", worker_count_update_handler)
+                logging.info("Registered worker_count_update handler")
+        # Detect if we're a master
+        elif hasattr(environment.runner, "clients"):
+            worker_id = 0  # Master is worker ID 0
+            logging.info(f"Worker {worker_id} initialized with clients")
+            # Update worker count based on connected clients
+            worker_count = len(environment.runner.clients) if environment.runner.clients else 1
+            logging.info(f"Worker {worker_id} of {worker_count} initialized with clients")
         else:
             # Fallback to PID if worker index not available
             worker_id = os.getpid() % 1000
     else:
         # Standalone mode - use PID modulo
         worker_id = os.getpid() % 1000
+        logging.info(f"Worker {worker_id} initialized with PID")
     
-    logging.info(f"Initializing worker {worker_id}")
+    logging.info(f"Initializing worker {worker_id} with worker count {worker_count}")
     
     if ENABLE_USER_POOL:
         MAX_USER_COUNT.value = max(RPS)
         ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value  # Initialize active count to max
         logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT.value}, ACTIVE_USER_COUNT={ACTIVE_USER_COUNT.value}")
 
+    # Setup a regular update of worker count for master node
+    if hasattr(environment.runner, "clients"):
+        # Only for master - spawn a greenlet to update worker count periodically
+        gevent.spawn(update_worker_count_periodically, environment)
+        logging.info(f"Worker {worker_id} of {worker_count} initialized with clients")
+
+def update_worker_count_periodically(environment: Environment) -> None:
+    """Periodically update the worker count (for master)"""
+    global worker_count
+    while True:
+        if hasattr(environment.runner, "clients"):
+            current_count = len(environment.runner.clients) if environment.runner.clients else 1
+            if current_count != worker_count:
+                worker_count = current_count
+                logging.info(f"Updated worker count to {worker_count}")
+                
+                # Send information to workers if possible
+                if hasattr(environment.runner, "send_message"):
+                    try:
+                        environment.runner.send_message("worker_count_update", {"count": worker_count})
+                    except Exception as e:
+                        logging.warning(f"Failed to send worker count update: {e}")
+        
+        # Check every second
+        gevent.sleep(1)
+
+# Handler for worker_count_update messages (for workers)
+def worker_count_update_handler(environment: Environment, msg: Any, **kwargs: Any) -> None:
+    """Handle worker count updates from the master"""
+    global worker_count
+    new_count = msg.data["count"]
+    if new_count != worker_count:
+        worker_count = new_count
+        logging.info(f"Updated worker count to {worker_count} based on master message")
+
 # Update worker count when spawning starts
 @events.spawning_complete.add_listener
 def on_spawning_complete(user_count: int, environment: Environment, **kwargs: Any) -> None:
+    """Double-check worker information after spawning completes"""
     global worker_count, worker_id
     
-    # Get worker count directly from the environment parameter
+    # For master node, update worker count if needed
     if environment and environment.runner:
-        # For worker nodes
-        if hasattr(environment.runner, "worker_index"):
-            worker_id = environment.runner.worker_index
-        
-        # For master node
-        if hasattr(environment.runner, "worker_count"):
-            worker_count = max(environment.runner.worker_count, 1)
-            logging.info(f"Master detected {worker_count} workers")
-        # For master when worker_count is not available
-        elif hasattr(environment.runner, "clients"):
-            worker_count = len(environment.runner.clients) or 1
-            logging.info(f"Master detected {worker_count} workers from clients dictionary")
+        if hasattr(environment.runner, "clients") and environment.runner.clients:
+            current_count = len(environment.runner.clients)
+            if current_count != worker_count:
+                worker_count = current_count
+                logging.info(f"Master updated worker count to {worker_count} at spawning complete")
             
-    logging.info(f"Worker {worker_id} of {worker_count} initialized with spawning complete")
-
-# Update worker count when a new worker connects (master only)
-@events.worker_connect.add_listener
-def on_worker_connect(client_id: str, environment: Environment, **kwargs: Any) -> None:
-    global worker_count
-    
-    # Only applicable to master node
-    if environment and environment.runner and hasattr(environment.runner, "worker_count"):
-        worker_count = max(environment.runner.worker_count, 1)
-        logging.info(f"Worker {client_id} connected, now at {worker_count} workers")
+    logging.info(f"Worker {worker_id} of {worker_count} ready with spawning complete")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
