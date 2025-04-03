@@ -7,38 +7,38 @@ import random
 import time
 from multiprocessing import Value
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import gevent
 import urllib3
 
 import locust.stats
 from locust import FastHttpUser, LoadTestShape, between, events, tag, task
+from locust.env import Environment
 
 # Add a global lock for synchronizing user activation
-activation_lock = gevent.lock.RLock()
+activation_lock: gevent.lock.RLock = gevent.lock.RLock()
 # Global variables for tracking active users
 MAX_USER_COUNT = multiprocessing.Value('i', 0)  # Shared max user count
 ACTIVE_USER_COUNT = multiprocessing.Value('i', 0)  # Shared active user count
-# Value to keep track of total worker count
-WORKER_COUNT = multiprocessing.Value('i', 1)  # Default to 1, will be updated
 # Flag to determine behavior mode
-ENABLE_USER_POOL = False
+ENABLE_USER_POOL: bool = False
 
 # Each worker keeps a local registry mapping users to IDs
-user_registry = {}
+user_registry: Dict[int, int] = {}
 # Local counter for sequential user IDs within this process
-local_user_counter = 0
+local_user_counter: int = 0
 # Worker information - will be set during initialization
-worker_id = None
-worker_count = None
+worker_id: int = 0
+worker_count: int = 1  # Default to 1 worker until we know better
 
-def load_stats_config():
+def load_stats_config() -> Dict[str, Any]:
     """
     Load Locust stats configuration from a JSON file if it exists,
     otherwise use default values.
     """
     # Default values
-    default_config = {
+    default_config: Dict[str, Any] = {
         # How frequently (in seconds) stats are updated in the console output
         "CONSOLE_STATS_INTERVAL_SEC": 1,
         
@@ -79,12 +79,12 @@ def load_stats_config():
     }
 
     # Try to load config from JSON file
-    config_path = os.path.join(os.path.dirname(__file__), 'locust_stats_config.json')
+    config_path: str = os.path.join(os.path.dirname(__file__), 'locust_stats_config.json')
     
     try:
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
-                loaded_config = json.load(f)
+                loaded_config: Dict[str, Any] = json.load(f)
                 # Update defaults with loaded values
                 default_config.update(loaded_config)
                 print(f"Loaded configuration from {config_path}")
@@ -107,7 +107,7 @@ def load_stats_config():
 
     return default_config
 
-def print_config(config):
+def print_config(config: Dict[str, Any]) -> None:
     """Print the current configuration settings"""
     print("\n=== Locust Configuration ===")
     print(f"Request Rate Per User: {config['REQUEST_RATE_PER_USER']} requests/second")
@@ -123,25 +123,25 @@ def print_config(config):
     print("===========================\n")
 
 # Load config and get request rate
-app_config = load_stats_config()
+app_config: Dict[str, Any] = load_stats_config()
 print_config(app_config)
-request_rate = app_config["REQUEST_RATE_PER_USER"]
-spawn_rate = app_config["SPAWN_RATE"]  # Get spawn rate from config
-wait_time_seconds = 1.0 / request_rate  # Convert RPS to interval between requests
+request_rate: float = app_config["REQUEST_RATE_PER_USER"]
+spawn_rate: int = app_config["SPAWN_RATE"]  # Get spawn rate from config
+wait_time_seconds: float = 1.0 / request_rate  # Convert RPS to interval between requests
 ENABLE_USER_POOL = app_config["ENABLE_USER_POOL"]
 
 # Initialize random seed based on config
-seed = app_config["RANDOM_SEED"]
+seed: Optional[Union[int, float]] = app_config["RANDOM_SEED"]
 if seed is None:
     seed = time.time()
 random.seed(seed)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-script_dir = Path(__file__).resolve().parent
-image_dir  = script_dir / 'base64_images'
-image_data = {}
-image_names = []
+script_dir: Path = Path(__file__).resolve().parent
+image_dir: Path = script_dir / 'base64_images'
+image_data: Dict[str, str] = {}
+image_names: List[str] = []
 
 logging.basicConfig(level=logging.INFO)
 
@@ -155,18 +155,18 @@ if not any(image_dir.iterdir()):
     print("No images found in the directory. Generating dummy base64 images.")
     for i in range(4):  # Generate 4 images
         # Create dummy binary image data
-        dummy_image_data = b"This is a dummy image for testing EcoScale " + bytes(str(i), "utf-8")
+        dummy_image_data: bytes = b"This is a dummy image for testing EcoScale " + bytes(str(i), "utf-8")
         # Encode it in base64
-        encoded_image = base64.b64encode(dummy_image_data).decode('utf-8')
+        encoded_image: str = base64.b64encode(dummy_image_data).decode('utf-8')
         # Save to a file
-        image_path = image_dir / f"dummy_image_{i}.jpg"
+        image_path: Path = image_dir / f"dummy_image_{i}.jpg"
         with open(image_path, 'w') as f:
             f.write(encoded_image)
     print(f"Generated {len(list(image_dir.iterdir()))} dummy base64 images.")
 
 # Load images into image_data and image_names
 for img in os.listdir(str(image_dir)):
-    full_path = image_dir / img
+    full_path: Path = image_dir / img
     image_names.append(img)
     with open(str(full_path), 'r') as f:
         image_data[img] = f.read()
@@ -180,25 +180,20 @@ def wait_for_worker_init():
     return worker_id, worker_count
 
 # Enhanced user registration system
-def register_user(user):
+def register_user(user: Any) -> int:
     """Register a user and assign it a sequential ID"""
-    global user_registry, local_user_counter, worker_id, worker_count
-    
-    # Make sure worker info is initialized
-    if worker_id is None or worker_count is None:
-        w_id, w_count = wait_for_worker_init()
-        worker_id = w_id
-        worker_count = w_count
+    global user_registry, local_user_counter
     
     # Use object ID as local key
-    user_id_key = id(user)
+    user_id_key: int = id(user)
     
     if user_id_key not in user_registry:
-        # True interleaving with worker_id as offset
-        # Worker 0 gets IDs 0, W, 2W, 3W, ... (where W = total workers)
-        # Worker 1 gets IDs 1, W+1, 2W+1, 3W+1, ... 
-        # This ensures perfect interleaving
-        unique_id = worker_id + (local_user_counter * worker_count)
+        # Create user ID using worker ID and local counter
+        # This ensures perfect interleaving across workers:
+        # - Worker 0 gets user IDs 0, N, 2N, ...
+        # - Worker 1 gets user IDs 1, N+1, 2N+1, ...
+        # where N is the total number of workers
+        unique_id: int = worker_id + (local_user_counter * worker_count)
         local_user_counter += 1
         
         # Store in local registry
@@ -208,14 +203,14 @@ def register_user(user):
     return user_registry[user_id_key]
 
 # Check if a user is active based on its ID
-def is_user_active(user):
+def is_user_active(user: Any) -> bool:
     """Check if this user should be active"""
     if not ENABLE_USER_POOL:
         return True
     
-    user_id = register_user(user)
+    user_id: int = register_user(user)
     with ACTIVE_USER_COUNT.get_lock():
-        active_count = ACTIVE_USER_COUNT.value
+        active_count: int = ACTIVE_USER_COUNT.value
         logging.info(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
         return user_id < active_count
 
@@ -229,7 +224,7 @@ charset = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's',
 decset = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 
 # User ID by follower dictionaries
-user_id_by_follower_num = {}
+user_id_by_follower_num: Dict[int, List[int]] = {}
 user_id_by_follower_num[10] = [3, 12, 14, 21, 24, 27, 29, 33, 37, 41, 42, 43,
     51, 58, 62, 69, 80, 84, 86, 92, 97, 117, 122, 123, 124, 133, 135, 159, 167,
     170, 181, 185, 187, 193, 195, 213, 215, 218, 219, 224, 253, 254, 263, 267, 271,
@@ -295,7 +290,7 @@ user_id_by_follower_num[300] = [52, 103, 147, 155, 160, 204, 206, 214, 222, 229,
     456, 526, 529, 555, 558, 562, 592, 617, 633, 646, 669, 679, 709, 710, 718,
     746, 747, 748, 760, 795, 805, 808, 830, 837, 856, 866, 873, 889, 892, 908, 958]
 
-def random_string(length):
+def random_string(length: int) -> str:
     global charset
     if length > 0:
         s = ""
@@ -305,7 +300,7 @@ def random_string(length):
     else:
         return ""
 
-def random_decimal(length):
+def random_decimal(length: int) -> str:
     global decset
     if length > 0:
         s = ""
@@ -315,8 +310,8 @@ def random_decimal(length):
     else:
         return ""
 
-def compose_random_text():
-    coin = random.random() * 100
+def compose_random_text() -> str:
+    coin: float = random.random() * 100
     if coin <= 30.0:
         length = random.randint(0, 50)
     elif coin <= 58.2:
@@ -331,23 +326,23 @@ def compose_random_text():
         length = random.randint(251, 280)
     return random_string(length)
 
-def compose_random_user():
+def compose_random_user() -> str:
     """Simplified version matching Lua implementation"""
-    max_user_index = 962
+    max_user_index: int = 962
     return str(random.randint(0, max_user_index - 1))
 
 # Use standard constant pacing function
-def constant_pacing(wait_time):
+def constant_pacing(wait_time: float) -> Callable[[Any], float]:
     """
     Returns a function that will track the run time of the tasks, and for each time it's
     called it will return a wait time that will try to make the total time between task
     execution equal to the time specified by the wait_time argument.
     """
-    def wait_time_func(self):
+    def wait_time_func(self: Any) -> float:
         if not hasattr(self, "_cp_last_wait_time"):
             self._cp_last_wait_time = 0
             self._cp_last_run = time.time()
-        run_time = time.time() - self._cp_last_run - self._cp_last_wait_time
+        run_time: float = time.time() - self._cp_last_run - self._cp_last_wait_time
         self._cp_last_wait_time = max(0, wait_time - run_time)
         self._cp_last_run = time.time()
         return self._cp_last_wait_time
@@ -360,7 +355,7 @@ class SocialMediaUser(FastHttpUser):
 
     @task(100)
     @tag('compose_post')
-    def compose_post(self):
+    def compose_post(self) -> None:
         # Simply check if this user is active and return immediately if not
         if not is_user_active(self):
             return
@@ -368,36 +363,36 @@ class SocialMediaUser(FastHttpUser):
         global image_names
         global image_data
         #----------------- contents -------------------#
-        user_id = compose_random_user()
-        username = 'username_' + user_id
-        text = compose_random_text()
+        user_id: str = compose_random_user()
+        username: str = 'username_' + user_id
+        text: str = compose_random_text()
         #---- user mentions ----#
         for i in range(0, 5):
-            user_mention_id = random.randint(1, 2)
+            user_mention_id: int = random.randint(1, 2)
             while True:
                 user_mention_id = random.randint(1, 962)
-                if user_id != user_mention_id:
+                if user_id != str(user_mention_id):
                     break
             text = text + " @username_" + str(user_mention_id)
 
         #---- urls ----#
         for i in range(0, 5):
             if random.random() <= 0.2:
-                num_urls = random.randint(0, 5)
+                num_urls: int = random.randint(0, 5)
                 for i in range(0, num_urls):
                     text = text + " https://www.bilibili.com/av" + random_decimal(8)
 
         #---- media ----#
-        num_media = 0
-        media_names = []
-        medium = []
-        media_types = []
+        num_media: int = 0
+        media_names: List[str] = []
+        medium: List[str] = []
+        media_types: List[str] = []
         if random.random() < 0.25:
             num_media = random.randint(1, 4)
             # num_media = 1
         num_media = 1
         for i in range(0, num_media):
-            img_name = random.choice(image_names)
+            img_name: str = random.choice(image_names)
             if 'jpg' in img_name:
                 media_types.append('jpg')
             elif 'png' in img_name:
@@ -406,13 +401,13 @@ class SocialMediaUser(FastHttpUser):
                 continue
             medium.append(image_data[img_name])
             media_names.append(img_name)
-        media_names = ' '.join(media_names)
+        media_names_str: str = ' '.join(media_names)
 
-        params = {}
+        params: Dict[str, Any] = {}
 
-        url = '/wrk2-api/post/compose'
-        img = random.choice(image_names)
-        body = {}
+        url: str = '/wrk2-api/post/compose'
+        img: str = random.choice(image_names)
+        body: Dict[str, str] = {}
         if num_media > 0:
             body['username'] = username
             body['user_id'] = user_id
@@ -430,19 +425,19 @@ class SocialMediaUser(FastHttpUser):
 
         r = self.client.post(url, params=params,
             data=body, name='compose_post',
-            context={'type': 'compose_post', 'num_media': num_media, 'text': text, 'media_names': media_names})
+            context={'type': 'compose_post', 'num_media': num_media, 'text': text, 'media_names': media_names_str})
 
         if r.status_code > 202:
             logging.warning('compose_post resp.status = %d, text=%s' %(r.status_code,
                 r.text))
 
 # Read RPS values from the 'rps.txt' file
-RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
+RPS: List[int] = list(map(int, Path('rps.txt').read_text().splitlines()))
 
 # Initialize user activation on startup
 @events.init.add_listener
-def on_locust_init(environment, **kwargs):
-    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id, worker_count
+def on_locust_init(environment: Environment, **kwargs: Any) -> None:
+    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id
     
     # Set worker ID based on environment
     if hasattr(environment, "runner") and environment.runner:
@@ -457,8 +452,7 @@ def on_locust_init(environment, **kwargs):
         # Standalone mode - use PID modulo
         worker_id = os.getpid() % 1000
     
-    # Wait for the runner to fully initialize before proceeding
-    gevent.sleep(0.5)
+    logging.info(f"Initializing worker {worker_id}")
     
     if ENABLE_USER_POOL:
         MAX_USER_COUNT.value = max(RPS)
@@ -467,41 +461,42 @@ def on_locust_init(environment, **kwargs):
 
 # Update worker count when spawning starts
 @events.spawning_complete.add_listener
-def on_spawning_complete(user_count, **kwargs):
-    global worker_count
+def on_spawning_complete(user_count: int, environment: Environment, **kwargs: Any) -> None:
+    global worker_count, worker_id
     
-    # Now that spawning is complete, we can get accurate worker count
-    if worker_count is None:
-        from locust.env import Environment
-        env = Environment.get_current_environment()
-        if env and env.runner and hasattr(env.runner, "worker_count"):
-            worker_count = max(env.runner.worker_count, 1)
-        else:
-            worker_count = 1
+    # Get worker count directly from the environment parameter
+    if environment and environment.runner:
+        # For worker nodes
+        if hasattr(environment.runner, "worker_index"):
+            worker_id = environment.runner.worker_index
         
-        logging.info(f"Worker {worker_id} determined final worker count: {worker_count}")
+        # For master node
+        if hasattr(environment.runner, "worker_count"):
+            worker_count = max(environment.runner.worker_count, 1)
+            logging.info(f"Master detected {worker_count} workers")
+        # For master when worker_count is not available
+        elif hasattr(environment.runner, "clients"):
+            worker_count = len(environment.runner.clients) or 1
+            logging.info(f"Master detected {worker_count} workers from clients dictionary")
+            
+    logging.info(f"Worker {worker_id} of {worker_count} initialized with spawning complete")
 
-# Alternative way to get worker count from client_ready event
-@events.client_ready.add_listener
-def on_client_ready(**kwargs):
+# Update worker count when a new worker connects (master only)
+@events.worker_connect.add_listener
+def on_worker_connect(client_id: str, environment: Environment, **kwargs: Any) -> None:
     global worker_count
     
-    if worker_count is None:
-        from locust.env import Environment
-        env = Environment.get_current_environment()
-        if env and env.runner and hasattr(env.runner, "worker_count"):
-            worker_count = max(env.runner.worker_count, 1)
-        else:
-            worker_count = 1
-        
-        logging.info(f"Worker {worker_id} determined client_ready worker count: {worker_count}")
+    # Only applicable to master node
+    if environment and environment.runner and hasattr(environment.runner, "worker_count"):
+        worker_count = max(environment.runner.worker_count, 1)
+        logging.info(f"Worker {client_id} connected, now at {worker_count} workers")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
-    time_limit = len(RPS)
-    spawn_rate = spawn_rate
+    time_limit: int = len(RPS)
+    spawn_rate: int = spawn_rate
     
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         global MAX_USER_COUNT, ACTIVE_USER_COUNT
         
@@ -512,17 +507,17 @@ class CustomShape(LoadTestShape):
             ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value
             print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT.value} total users")
     
-    def tick(self):
+    def tick(self) -> Optional[Tuple[int, float]]:
         global ACTIVE_USER_COUNT
-        run_time = int(self.get_run_time())
+        run_time: int = int(self.get_run_time())
         
         if run_time < self.time_limit:
-            target_user_count = RPS[run_time]
+            target_user_count: int = RPS[run_time]
             
             if ENABLE_USER_POOL:
                 # In user activation mode, we update the active user count
                 with ACTIVE_USER_COUNT.get_lock():
-                    old_count = ACTIVE_USER_COUNT.value
+                    old_count: int = ACTIVE_USER_COUNT.value
                     ACTIVE_USER_COUNT.value = target_user_count
                 
                 # Log the change in active users
