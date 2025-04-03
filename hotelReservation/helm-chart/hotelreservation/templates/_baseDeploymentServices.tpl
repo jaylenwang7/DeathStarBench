@@ -36,18 +36,26 @@ spec:
         {{- range $cport := .ports }}
         - containerPort: {{ $cport.containerPort -}}
         {{ end }}
-        {{- if hasKey . "environments" }}
         env:
-          {{- range $variable, $value := .environments }}
-          - name: {{ $variable }}
-            value: {{ $value | quote }}
-          {{- end }}
+        {{- if and (hasKey $.Values.global.services "environments") (hasKey . "environments") }}
+        {{- range $variable, $value := $.Values.global.services.environments }}
+        - name: {{ $variable }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- range $variable, $value := .environments }}
+        - name: {{ $variable }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- else if hasKey . "environments" }}
+        {{- range $variable, $value := .environments }}
+        - name: {{ $variable }}
+          value: {{ $value | quote }}
+        {{- end }}
         {{- else if hasKey $.Values.global.services "environments" }}
-        env:
-          {{- range $variable, $value := $.Values.global.services.environments }}
-          - name: {{ $variable }}
-            value: {{ $value | quote }}
-          {{- end }}
+        {{- range $variable, $value := $.Values.global.services.environments }}
+        - name: {{ $variable }}
+          value: {{ $value | quote }}
+        {{- end }}
         {{- end }}
         {{- if .command}}
         command:
@@ -98,16 +106,16 @@ spec:
       {{- if .Values.affinity }}
       affinity: {{- toYaml .Values.affinity | nindent 8 }}
       {{- else if hasKey $.Values.global "affinity" }}
-      affinity: {{- toYaml .Values.global.affinity | nindent 8 }}
+      affinity: {{- toYaml $.Values.global.affinity | nindent 8 }}
       {{- end }}
       {{- if .Values.tolerations }}
       tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
       {{- else if hasKey $.Values.global "tolerations" }}
-      tolerations: {{- toYaml .Values.global.tolerations | nindent 8 }}
+      tolerations: {{- toYaml $.Values.global.tolerations | nindent 8 }}
       {{- end }}
       {{- if .Values.nodeSelector }}
       nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
       {{- else if hasKey $.Values.global "nodeSelector" }}
-      nodeSelector: {{- toYaml .Values.global.nodeSelector | nindent 8 }}
+      nodeSelector: {{- toYaml $.Values.global.nodeSelector | nindent 8 }}
       {{- end }}
 {{- end}}

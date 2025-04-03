@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 
 	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/dialer"
 	"github.com/delimitrou/DeathStarBench/tree/master/hotelReservation/registry"
@@ -46,6 +48,26 @@ type Server struct {
 	Port       int
 	Tracer     opentracing.Tracer
 	Registry   *registry.Client
+}
+
+// getEnvWithDefault gets an environment variable or returns a default value
+func getEnvWithDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+// getTimeoutFromEnv gets a timeout value from environment variables in milliseconds and returns a time.Duration
+func getTimeoutFromEnv(key string, defaultMs int) time.Duration {
+	msStr := getEnvWithDefault(key, strconv.Itoa(defaultMs))
+	ms, err := strconv.Atoi(msStr)
+	if err != nil {
+		log.Warn().Str("key", key).Str("value", msStr).Err(err).Msg("Invalid timeout value, using default")
+		ms = defaultMs
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // Run the server
@@ -105,10 +127,24 @@ func (s *Server) Run() error {
 
 	log.Trace().Msg("frontend starts serving")
 
+	// Get HTTP server timeouts from environment variables
+	readTimeout := getTimeoutFromEnv("HTTP_READ_TIMEOUT_MS", 10000)
+	writeTimeout := getTimeoutFromEnv("HTTP_WRITE_TIMEOUT_MS", 10000)
+	idleTimeout := getTimeoutFromEnv("HTTP_IDLE_TIMEOUT_MS", 120000)
+
+	log.Info().
+		Dur("readTimeout", readTimeout).
+		Dur("writeTimeout", writeTimeout).
+		Dur("idleTimeout", idleTimeout).
+		Msg("Configured HTTP server timeouts")
+
 	tlsconfig := tls.GetHttpsOpt()
 	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.Port),
-		Handler: mux,
+		Addr:         fmt.Sprintf(":%d", s.Port),
+		Handler:      mux,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
 	}
 	if tlsconfig != nil {
 		log.Info().Msg("Serving https")
@@ -130,10 +166,14 @@ func (s *Server) initSearchClient(name string) error {
 }
 
 func (s *Server) initReviewClient(name string) error {
+	// Get gRPC connection timeout from environment variable
+	connTimeout := getTimeoutFromEnv("GRPC_CONNECTION_TIMEOUT_MS", 5000)
+	
 	conn, err := dialer.Dial(
 		name,
 		dialer.WithTracer(s.Tracer),
 		dialer.WithBalancer(s.Registry.Client),
+		dialer.WithTimeout(connTimeout),
 	)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
@@ -143,10 +183,14 @@ func (s *Server) initReviewClient(name string) error {
 }
 
 func (s *Server) initAttractionsClient(name string) error {
+	// Get gRPC connection timeout from environment variable
+	connTimeout := getTimeoutFromEnv("GRPC_CONNECTION_TIMEOUT_MS", 5000)
+	
 	conn, err := dialer.Dial(
 		name,
 		dialer.WithTracer(s.Tracer),
 		dialer.WithBalancer(s.Registry.Client),
+		dialer.WithTimeout(connTimeout),
 	)
 	if err != nil {
 		return fmt.Errorf("dialer error: %v", err)
@@ -196,15 +240,26 @@ func (s *Server) getGprcConn(name string) (*grpc.ClientConn, error) {
 	log.Info().Msg(s.KnativeDns)
 	log.Info().Msg(fmt.Sprintf("%s.%s", name, s.KnativeDns))
 
+	// Get gRPC connection timeout from environment variable
+	connTimeout := getTimeoutFromEnv("GRPC_CONNECTION_TIMEOUT_MS", 5000)
+
+	log.Info().Dur("timeout", connTimeout).Msg("Configured gRPC connection timeout")
+
+	// Set connection timeout
+	dialOpts := []dialer.DialOption{
+		dialer.WithTracer(s.Tracer),
+		dialer.WithBalancer(s.Registry.Client),
+		dialer.WithTimeout(connTimeout),
+	}
+
 	if s.KnativeDns != "" {
 		return dialer.Dial(
 			fmt.Sprintf("consul://%s/%s.%s", s.ConsulAddr, name, s.KnativeDns),
-			dialer.WithTracer(s.Tracer))
+			dialOpts...)
 	} else {
 		return dialer.Dial(
 			fmt.Sprintf("consul://%s/%s", s.ConsulAddr, name),
-			dialer.WithTracer(s.Tracer),
-			dialer.WithBalancer(s.Registry.Client),
+			dialOpts...,
 		)
 	}
 }

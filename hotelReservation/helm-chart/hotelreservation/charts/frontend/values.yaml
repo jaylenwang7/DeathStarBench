@@ -16,6 +16,14 @@ container:
   name: hotel-reserv-frontend
   ports:
   - containerPort: 5000
+  # Service-specific environment variables to override global settings
+  environments:
+    # Timeout configurations (in milliseconds)
+    # Uncomment and modify to override global values
+    # GRPC_CONNECTION_TIMEOUT_MS: "3000"
+    # HTTP_READ_TIMEOUT_MS: "8000" 
+    # HTTP_WRITE_TIMEOUT_MS: "8000"
+    # HTTP_IDLE_TIMEOUT_MS: "90000" 
 
 configMaps:
   - name: service-config.json
