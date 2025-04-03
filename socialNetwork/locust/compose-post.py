@@ -550,6 +550,7 @@ class CustomShape(LoadTestShape):
     def tick(self) -> Optional[Tuple[int, float]]:
         global ACTIVE_USER_COUNT
         run_time: int = int(self.get_run_time())
+        logging.info(f"Time {run_time}s")
         
         if run_time < self.time_limit:
             target_user_count: int = RPS[run_time]
