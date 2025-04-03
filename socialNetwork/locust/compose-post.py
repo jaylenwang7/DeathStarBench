@@ -184,7 +184,7 @@ def register_user(user):
         
         # Store in local registry
         user_registry[user_id_key] = unique_id
-        logging.debug(f"Worker {worker_id}: Registering user {id(user)} to ID {unique_id}")
+        logging.info(f"Worker {worker_id}: Registering user {id(user)} to ID {unique_id}")
     
     return user_registry[user_id_key]
 
@@ -197,7 +197,7 @@ def is_user_active(user):
     user_id = register_user(user)
     with ACTIVE_USER_COUNT.get_lock():
         active_count = ACTIVE_USER_COUNT.value
-        logging.debug(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
+        logging.info(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
         return user_id < active_count
 
 # Utility functions
