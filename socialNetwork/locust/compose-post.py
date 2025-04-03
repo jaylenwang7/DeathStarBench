@@ -168,6 +168,7 @@ def register_user(user):
     with activation_lock:
         if user not in user_registry:
             user_registry[user] = next_user_id
+            logging.info(f"Registering user {id(user)} to id {next_user_id}")
             next_user_id += 1
     return user_registry[user]
 
@@ -178,6 +179,7 @@ def is_user_active(user):
         return True
     
     user_id = register_user(user)
+    print(f"Active user count: {ACTIVE_USER_COUNT}")
     with activation_lock:
         return user_id < ACTIVE_USER_COUNT
 
