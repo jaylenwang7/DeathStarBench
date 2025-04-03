@@ -211,7 +211,8 @@ def is_user_active(user: Any) -> bool:
     user_id: int = register_user(user)
     with ACTIVE_USER_COUNT.get_lock():
         active_count: int = ACTIVE_USER_COUNT.value
-        logging.info(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
+        # Only log at debug level to reduce noise
+        logging.debug(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
         return user_id < active_count
 
 # Utility functions
@@ -513,19 +514,22 @@ def worker_count_update_handler(environment: Environment, msg: Any, **kwargs: An
 
 # Update worker count when spawning starts
 @events.spawning_complete.add_listener
-def on_spawning_complete(user_count: int, environment: Environment, **kwargs: Any) -> None:
+def on_spawning_complete(user_count: int, **kwargs: Any) -> None:
     """Double-check worker information after spawning completes"""
     global worker_count, worker_id
     
+    # Get environment from kwargs if available
+    environment = kwargs.get('environment', None)
+    
     # For master node, update worker count if needed
-    if environment and environment.runner:
+    if environment and hasattr(environment, "runner"):
         if hasattr(environment.runner, "clients") and environment.runner.clients:
             current_count = len(environment.runner.clients)
             if current_count != worker_count:
                 worker_count = current_count
                 logging.info(f"Master updated worker count to {worker_count} at spawning complete")
-            
-    logging.info(f"Worker {worker_id} of {worker_count} ready with spawning complete")
+    
+    logging.info(f"Worker {worker_id} of {worker_count} ready with spawning complete - {user_count} users")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
@@ -563,6 +567,7 @@ class CustomShape(LoadTestShape):
                     else:
                         logging.info(f"Time {run_time}s: Deactivating users - {old_count} → {ACTIVE_USER_COUNT.value} of {MAX_USER_COUNT.value} total")
                 
+                # Ensure we spawn all users the first time
                 if run_time == 0:
                     # On first tick, spawn all users at once
                     return (MAX_USER_COUNT.value, self.spawn_rate)
