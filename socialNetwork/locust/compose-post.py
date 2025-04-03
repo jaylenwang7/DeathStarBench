@@ -1,28 +1,33 @@
-import random
-from locust import FastHttpUser, LoadTestShape, task, tag, between, events
 import base64
-import os
-from pathlib import Path
-import logging
-import time
 import json
-import urllib3
+import logging
+import multiprocessing
+import os
+import random
+import time
+from multiprocessing import Value
+from pathlib import Path
+
 import gevent
+import urllib3
 
 import locust.stats
+from locust import FastHttpUser, LoadTestShape, between, events, tag, task
 
 # Add a global lock for synchronizing user activation
 activation_lock = gevent.lock.RLock()
 # Global variables for tracking active users
-user_registry = {}  # Maps user instances to sequential IDs
-next_user_id = 0
-MAX_USER_COUNT = 0
-ACTIVE_USER_COUNT = 0
+MAX_USER_COUNT = multiprocessing.Value('i', 0)  # Shared max user count
+ACTIVE_USER_COUNT = multiprocessing.Value('i', 0)  # Shared active user count
 # Flag to determine behavior mode
 ENABLE_USER_POOL = False
-# Track worker ID and total worker count
-WORKER_ID = None
-WORKER_COUNT = None
+
+# Each worker keeps a local registry mapping users to IDs
+user_registry = {}
+# Local counter for sequential user IDs within this process
+local_user_counter = 0
+# Worker index - will be set during initialization
+worker_id = 0
 
 def load_stats_config():
     """
@@ -163,29 +168,25 @@ for img in os.listdir(str(image_dir)):
     with open(str(full_path), 'r') as f:
         image_data[img] = f.read()
 
-# Custom event for updating active user count
-class ActiveUserEvent:
-    def __init__(self):
-        self.active_count = 0
-        self.users_per_worker = 0
-
-active_user_event = ActiveUserEvent()
-
-# Enhanced user registration system that considers worker distribution
+# Enhanced user registration system
 def register_user(user):
-    """Register a user and assign it a sequential ID that's unique across workers"""
-    global next_user_id
+    """Register a user and assign it a sequential ID"""
+    global user_registry, local_user_counter
     
-    with activation_lock:
-        if user not in user_registry:
-            # Assign a worker-specific sequential ID that ensures uniqueness across workers
-            # If we have 3 workers, worker 0 gets IDs 0,3,6,..., worker 1 gets 1,4,7,..., etc.
-            worker_specific_id = next_user_id * WORKER_COUNT + WORKER_ID
-            user_registry[user] = worker_specific_id
-            next_user_id += 1
-            logging.debug(f"Worker {WORKER_ID}/{WORKER_COUNT}: Assigned ID {worker_specific_id} to user {id(user)}")
+    # Use object ID as local key
+    user_id_key = id(user)
     
-    return user_registry[user]
+    if user_id_key not in user_registry:
+        # Create a unique ID by combining worker_id and local counter
+        # This gives each worker a separate range of IDs (worker_id * 1000000 + local_counter)
+        unique_id = (worker_id * 1000000) + local_user_counter
+        local_user_counter += 1
+        
+        # Store in local registry
+        user_registry[user_id_key] = unique_id
+        logging.debug(f"Worker {worker_id}: Registering user {id(user)} to ID {unique_id}")
+    
+    return user_registry[user_id_key]
 
 # Check if a user is active based on its ID
 def is_user_active(user):
@@ -194,8 +195,10 @@ def is_user_active(user):
         return True
     
     user_id = register_user(user)
-    # Compare against the active count - any user with ID < active_count is active
-    return user_id < active_user_event.active_count
+    with ACTIVE_USER_COUNT.get_lock():
+        active_count = ACTIVE_USER_COUNT.value
+        logging.debug(f"Worker {worker_id}: Checking user {user_id} against active count: {active_count}")
+        return user_id < active_count
 
 # Utility functions
 charset = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's',
@@ -417,68 +420,30 @@ class SocialMediaUser(FastHttpUser):
 # Read RPS values from the 'rps.txt' file
 RPS = list(map(int, Path('rps.txt').read_text().splitlines()))
 
-# Define a custom event for setting active user count
+# Initialize user activation on startup
 @events.init.add_listener
 def on_locust_init(environment, **kwargs):
-    global MAX_USER_COUNT
+    global ACTIVE_USER_COUNT, MAX_USER_COUNT, worker_id
     
-    # Create a custom event to update active user count from master to workers
-    events.user_count_changed = environment.events.create_event("user_count_changed")
+    # Set worker ID based on environment
+    if hasattr(environment, "runner") and environment.runner:
+        if hasattr(environment.runner, "worker_index"):
+            worker_id = environment.runner.worker_index
+        elif hasattr(environment.runner, "client_id"):
+            worker_id = environment.runner.client_id
+        else:
+            # Fallback to PID if worker index not available
+            worker_id = os.getpid() % 1000
+    else:
+        # Standalone mode - use PID modulo
+        worker_id = os.getpid() % 1000
+        
+    logging.info(f"Initializing worker with ID: {worker_id}")
     
     if ENABLE_USER_POOL:
-        MAX_USER_COUNT = max(RPS)
-        active_user_event.active_count = MAX_USER_COUNT  # Initialize to max
-        logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT}, active_count={active_user_event.active_count}")
-
-# Identify worker ID when worker is ready
-@events.worker_report.add_listener
-def on_worker_report(client_id, data, **kwargs):
-    """
-    Identifies which worker we are by comparing client_id to all the connected workers.
-    This allows us to generate non-overlapping user IDs.
-    """
-    global WORKER_ID, WORKER_COUNT
-    
-    if not WORKER_ID and hasattr(data, "runner") and hasattr(data.runner, "clients"):
-        try:
-            # Get all client IDs and find this worker's index
-            client_ids = list(data.runner.clients.keys())
-            WORKER_ID = client_ids.index(client_id)
-            WORKER_COUNT = len(client_ids)
-            logging.info(f"Worker identified as #{WORKER_ID} of {WORKER_COUNT}")
-        except (AttributeError, ValueError):
-            WORKER_ID = 0  # Fallback
-            WORKER_COUNT = 1
-            logging.warning("Could not determine worker ID, using default 0")
-
-# Reset worker identity in master
-@events.test_start.add_listener
-def on_test_start(**kwargs):
-    global WORKER_ID, WORKER_COUNT
-    
-    if not WORKER_ID:
-        # For master or standalone
-        WORKER_ID = 0
-        WORKER_COUNT = 1
-        logging.info("Running as master/standalone with worker ID 0")
-
-# Listen for active user count changes
-@events.user_count_changed.add_listener
-def on_user_count_changed(new_count, **kwargs):
-    active_user_event.active_count = new_count
-    logging.info(f"Updated active user count to {new_count}")
-
-# Send user count updates to all workers
-def broadcast_user_count(environment, new_count):
-    if hasattr(environment.runner, "send_message"):
-        environment.runner.send_message("user_count_changed", {"count": new_count})
-
-# Handle messages from master to workers
-@events.message.add_listener
-def on_message(message, **kwargs):
-    if message["type"] == "user_count_changed":
-        active_user_event.active_count = message["data"]["count"]
-        logging.info(f"Worker received active user count update: {active_user_event.active_count}")
+        MAX_USER_COUNT.value = max(RPS)
+        ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value  # Initialize active count to max
+        logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT.value}, ACTIVE_USER_COUNT={ACTIVE_USER_COUNT.value}")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
@@ -487,16 +452,17 @@ class CustomShape(LoadTestShape):
     
     def __init__(self):
         super().__init__()
-        global MAX_USER_COUNT
+        global MAX_USER_COUNT, ACTIVE_USER_COUNT
         
         if ENABLE_USER_POOL:
             # When using user pool mode, find the maximum RPS needed
-            MAX_USER_COUNT = max(RPS)
-            active_user_event.active_count = MAX_USER_COUNT
-            print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT} total users")
+            MAX_USER_COUNT.value = max(RPS)
+            # Set all users active initially
+            ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value
+            print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT.value} total users")
     
     def tick(self):
-        global WORKER_COUNT
+        global ACTIVE_USER_COUNT
         run_time = int(self.get_run_time())
         
         if run_time < self.time_limit:
@@ -504,28 +470,23 @@ class CustomShape(LoadTestShape):
             
             if ENABLE_USER_POOL:
                 # In user activation mode, we update the active user count
-                old_count = active_user_event.active_count
-                active_user_event.active_count = target_user_count
-                
-                # Broadcast the change to all workers
-                if hasattr(self.runner, "environment"):
-                    broadcast_user_count(self.runner.environment, target_user_count)
+                with ACTIVE_USER_COUNT.get_lock():
+                    old_count = ACTIVE_USER_COUNT.value
+                    ACTIVE_USER_COUNT.value = target_user_count
                 
                 # Log the change in active users
-                if old_count != active_user_event.active_count:
-                    if old_count < active_user_event.active_count:
-                        logging.info(f"Time {run_time}s: Activating users - {old_count} → {active_user_event.active_count} of {MAX_USER_COUNT} total")
+                if old_count != ACTIVE_USER_COUNT.value:
+                    if old_count < ACTIVE_USER_COUNT.value:
+                        logging.info(f"Time {run_time}s: Activating users - {old_count} → {ACTIVE_USER_COUNT.value} of {MAX_USER_COUNT.value} total")
                     else:
-                        logging.info(f"Time {run_time}s: Deactivating users - {old_count} → {active_user_event.active_count} of {MAX_USER_COUNT} total")
+                        logging.info(f"Time {run_time}s: Deactivating users - {old_count} → {ACTIVE_USER_COUNT.value} of {MAX_USER_COUNT.value} total")
                 
                 if run_time == 0:
                     # On first tick, spawn all users at once
-                    # Distribute users across workers
-                    users_per_worker = (MAX_USER_COUNT + WORKER_COUNT - 1) // WORKER_COUNT if WORKER_COUNT else MAX_USER_COUNT
-                    return (MAX_USER_COUNT, self.spawn_rate)
+                    return (MAX_USER_COUNT.value, self.spawn_rate)
                 else:
                     # Keep the same total user count after first tick
-                    return (MAX_USER_COUNT, self.spawn_rate)
+                    return (MAX_USER_COUNT.value, self.spawn_rate)
             else:
                 # Original behavior - spawn/kill users to match the target count
                 logging.info(f"Time {run_time}s: Setting user count to {target_user_count}")
