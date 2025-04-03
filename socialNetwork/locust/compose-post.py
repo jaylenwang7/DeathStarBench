@@ -1,24 +1,26 @@
-import random
-from locust import FastHttpUser, LoadTestShape, task, tag, between, events
 import base64
-import os
-from pathlib import Path
-import logging
-import time
 import json
-from locust import events
-import urllib3
+import logging
+import os
+import random
+import time
+from multiprocessing import Manager, Value
+from pathlib import Path
+
 import gevent
+import urllib3
 
 import locust.stats
+from locust import FastHttpUser, LoadTestShape, between, events, tag, task
 
 # Add a global lock for synchronizing user activation
 activation_lock = gevent.lock.RLock()
-# Global variables for tracking active users
-user_registry = {}  # Maps user instances to sequential IDs
-next_user_id = 0
-MAX_USER_COUNT = 0
-ACTIVE_USER_COUNT = 0
+# Global variables for tracking active users using shared memory
+manager = Manager()
+user_registry = manager.dict()  # Maps user instances to sequential IDs
+next_user_id = Value('i', 0)  # Shared counter for user IDs
+MAX_USER_COUNT = Value('i', 0)  # Shared max user count
+ACTIVE_USER_COUNT = Value('i', 0)  # Shared active user count
 # Flag to determine behavior mode
 ENABLE_USER_POOL = False
 
@@ -164,12 +166,12 @@ for img in os.listdir(str(image_dir)):
 # Enhanced user registration system
 def register_user(user):
     """Register a user and assign it a sequential ID"""
-    global next_user_id
     with activation_lock:
         if user not in user_registry:
-            user_registry[user] = next_user_id
-            logging.info(f"Registering user {id(user)} to id {next_user_id}")
-            next_user_id += 1
+            with next_user_id.get_lock():
+                user_registry[user] = next_user_id.value
+                logging.info(f"Registering user {id(user)} to id {next_user_id.value}")
+                next_user_id.value += 1
     return user_registry[user]
 
 # Check if a user is active based on its ID
@@ -179,9 +181,10 @@ def is_user_active(user):
         return True
     
     user_id = register_user(user)
-    print(f"Active user count: {ACTIVE_USER_COUNT}")
-    with activation_lock:
-        return user_id < ACTIVE_USER_COUNT
+    with ACTIVE_USER_COUNT.get_lock():
+        active_count = ACTIVE_USER_COUNT.value
+        logging.info(f"Active user count: {active_count}")
+        return user_id < active_count
 
 # Utility functions
 charset = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's',
@@ -409,9 +412,9 @@ def on_locust_init(environment, **kwargs):
     global ACTIVE_USER_COUNT, MAX_USER_COUNT
     
     if ENABLE_USER_POOL:
-        MAX_USER_COUNT = max(RPS)
-        ACTIVE_USER_COUNT = MAX_USER_COUNT  # Initialize active count to max
-        logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT}, ACTIVE_USER_COUNT={ACTIVE_USER_COUNT}")
+        MAX_USER_COUNT.value = max(RPS)
+        ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value  # Initialize active count to max
+        logging.info(f"Initialized user pool with MAX_USER_COUNT={MAX_USER_COUNT.value}, ACTIVE_USER_COUNT={ACTIVE_USER_COUNT.value}")
 
 # Improved CustomShape for user activation
 class CustomShape(LoadTestShape):
@@ -424,10 +427,10 @@ class CustomShape(LoadTestShape):
         
         if ENABLE_USER_POOL:
             # When using user pool mode, find the maximum RPS needed
-            MAX_USER_COUNT = max(RPS)
+            MAX_USER_COUNT.value = max(RPS)
             # Set all users active initially
-            ACTIVE_USER_COUNT = MAX_USER_COUNT
-            print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT} total users")
+            ACTIVE_USER_COUNT.value = MAX_USER_COUNT.value
+            print(f"Running in ENABLE_USER_POOL mode with {MAX_USER_COUNT.value} total users")
     
     def tick(self):
         global ACTIVE_USER_COUNT
@@ -439,22 +442,22 @@ class CustomShape(LoadTestShape):
             if ENABLE_USER_POOL:
                 # In user activation mode, we update the active user count
                 with activation_lock:
-                    old_count = ACTIVE_USER_COUNT
-                    ACTIVE_USER_COUNT = target_user_count
+                    old_count = ACTIVE_USER_COUNT.value
+                    ACTIVE_USER_COUNT.value = target_user_count
                 
                 # Log the change in active users
-                if old_count != ACTIVE_USER_COUNT:
-                    if old_count < ACTIVE_USER_COUNT:
-                        logging.info(f"Time {run_time}s: Activating users - {old_count} → {ACTIVE_USER_COUNT} of {MAX_USER_COUNT} total")
+                if old_count != ACTIVE_USER_COUNT.value:
+                    if old_count < ACTIVE_USER_COUNT.value:
+                        logging.info(f"Time {run_time}s: Activating users - {old_count} → {ACTIVE_USER_COUNT.value} of {MAX_USER_COUNT.value} total")
                     else:
-                        logging.info(f"Time {run_time}s: Deactivating users - {old_count} → {ACTIVE_USER_COUNT} of {MAX_USER_COUNT} total")
+                        logging.info(f"Time {run_time}s: Deactivating users - {old_count} → {ACTIVE_USER_COUNT.value} of {MAX_USER_COUNT.value} total")
                 
                 if run_time == 0:
                     # On first tick, spawn all users at once
-                    return (MAX_USER_COUNT, self.spawn_rate)
+                    return (MAX_USER_COUNT.value, self.spawn_rate)
                 else:
                     # Keep the same total user count after first tick
-                    return (MAX_USER_COUNT, self.spawn_rate)
+                    return (MAX_USER_COUNT.value, self.spawn_rate)
             else:
                 # Original behavior - spawn/kill users to match the target count
                 logging.info(f"Time {run_time}s: Setting user count to {target_user_count}")
