@@ -116,7 +116,11 @@ def load_stats_config() -> Dict[str, Any]:
         # Useful for testing with self-signed certificates or internal test environments.
         # True: Skips SSL certificate checks (faster, works with self-signed certs)
         # False: Enforces valid SSL certificates (more secure, but requires proper certificates)
-        "HTTP_INSECURE": True
+        "HTTP_INSECURE": True,
+
+        # Add these new configuration parameters
+        "HTTP_KEEPALIVE": True,  # Enable keepalive (should be on by default)
+        "HTTP_KEEPALIVE_IDLE": 240,  # How long connections stay open when idle (seconds)
     }
 
     # Try to load config from JSON file
@@ -414,6 +418,15 @@ class ConfigurableFastHttpUser(FastHttpUser):
         
         # Initialize the parent class
         super().__init__(environment)
+
+        # Set keepalive settings
+        # Set keep-alive headers for all requests
+        if app_config.get("HTTP_KEEPALIVE", True):
+            if not self.default_headers:
+                self.default_headers = {}
+            self.default_headers["Connection"] = "keep-alive"
+            keep_alive_value = f"timeout={app_config.get('HTTP_KEEPALIVE_IDLE', 60)}"
+            self.default_headers["Keep-Alive"] = keep_alive_value
 
 class SocialMediaUser(ConfigurableFastHttpUser):
     # Use standard constant pacing
