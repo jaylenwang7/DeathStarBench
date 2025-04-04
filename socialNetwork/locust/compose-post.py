@@ -75,7 +75,50 @@ def load_stats_config() -> Dict[str, Any]:
         "RANDOM_SEED": None,
         
         # New option to create all users at start and control RPS by activation
-        "ENABLE_USER_POOL": False
+        # Looks for max users in the rps.txt file and then creates them all at start.
+        "ENABLE_USER_POOL": False,
+        
+        # Default HTTP client configuration with detailed explanations
+        "HTTP_CLIENT": {
+            # MAX_RETRIES: Controls how many times Locust will retry a failed request.
+            # Setting to 0 disables automatic retries, which is useful during load testing
+            # because retries can mask real performance issues and create artificial latency spikes.
+            # Higher values will make your test more resilient but might hide real issues.
+            "MAX_RETRIES": 0,
+            
+            # CONCURRENCY: Determines how many simultaneous connections each virtual user can have.
+            # This is essentially the connection pool size per user. Default is 10 connections.
+            # Higher values (50-100) allow each user to maintain more simultaneous connections,
+            # which can help prevent connection establishment overhead during high load tests.
+            # Too low: Users spend time waiting for available connections
+            # Too high: Can overwhelm the client machine with too many open sockets
+            "CONCURRENCY": 10,
+            
+            # NETWORK_TIMEOUT: Maximum time (in seconds) to wait for data transfer on an established connection.
+            # Controls how long Locust will wait for response data after a connection is established.
+            # If your application sometimes takes a long time to generate responses, increase this value.
+            # Too low: Causes false timeout errors for slow but normal responses
+            # Too high: Hanging requests will take longer to be detected
+            "NETWORK_TIMEOUT": 60.0,
+            
+            # CONNECTION_TIMEOUT: Maximum time (in seconds) to wait for a connection to be established.
+            # Controls how long Locust will attempt to establish a TCP connection to your server.
+            # Too low: May cause false failures when the server or network is slightly congested
+            # Too high: Test clients will wait longer before recognizing connection problems
+            "CONNECTION_TIMEOUT": 60.0,
+            
+            # MAX_REDIRECTS: Maximum number of HTTP redirects that Locust will follow automatically.
+            # If your application uses many redirects, increase this. Most applications
+            # should be fine with the default of 30 (HTTP spec recommends max 5).
+            # Setting to 0 will disable following redirects automatically.
+            "MAX_REDIRECTS": 30,
+            
+            # INSECURE: When true, SSL certificate verification is disabled.
+            # Useful for testing with self-signed certificates or internal test environments.
+            # True: Skips SSL certificate checks (faster, works with self-signed certs)
+            # False: Enforces valid SSL certificates (more secure, but requires proper certificates)
+            "INSECURE": True
+        }
     }
 
     # Try to load config from JSON file
@@ -120,6 +163,13 @@ def print_config(config: Dict[str, Any]) -> None:
     print(f"Response Time Percentile Window: {config['CURRENT_RESPONSE_TIME_PERCENTILE_WINDOW']} seconds")
     print(f"Percentiles to Report: {config['PERCENTILES_TO_REPORT']}")
     print(f"Enable User Pool: {config['ENABLE_USER_POOL']}")
+    print("\n=== HTTP Client Configuration ===")
+    print(f"Max Retries: {config['HTTP_CLIENT']['MAX_RETRIES']}")
+    print(f"Concurrency: {config['HTTP_CLIENT']['CONCURRENCY']}")
+    print(f"Network Timeout: {config['HTTP_CLIENT']['NETWORK_TIMEOUT']} seconds")
+    print(f"Connection Timeout: {config['HTTP_CLIENT']['CONNECTION_TIMEOUT']} seconds")
+    print(f"Max Redirects: {config['HTTP_CLIENT']['MAX_REDIRECTS']}")
+    print(f"Insecure (Skip SSL Verification): {config['HTTP_CLIENT']['INSECURE']}")
     print("===========================\n")
 
 # Load config and get request rate
@@ -135,6 +185,9 @@ seed: Optional[Union[int, float]] = app_config["RANDOM_SEED"]
 if seed is None:
     seed = time.time()
 random.seed(seed)
+
+# Extract HTTP client config
+http_client_config = app_config["HTTP_CLIENT"]
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -350,7 +403,24 @@ def constant_pacing(wait_time: float) -> Callable[[Any], float]:
 
     return wait_time_func
 
-class SocialMediaUser(FastHttpUser):
+# Custom FastHttpUser with configuration from config file
+class ConfigurableFastHttpUser(FastHttpUser):
+    """Base user class that reads HTTP client configuration from config file"""
+    abstract = True
+    
+    def __init__(self, environment):
+        # Set HTTP client parameters from config
+        self.max_retries = http_client_config["MAX_RETRIES"]
+        self.concurrency = http_client_config["CONCURRENCY"]
+        self.network_timeout = http_client_config["NETWORK_TIMEOUT"]
+        self.connection_timeout = http_client_config["CONNECTION_TIMEOUT"]
+        self.max_redirects = http_client_config["MAX_REDIRECTS"]
+        self.insecure = http_client_config["INSECURE"]
+        
+        # Initialize the parent class
+        super().__init__(environment)
+
+class SocialMediaUser(ConfigurableFastHttpUser):
     # Use standard constant pacing
     wait_time = constant_pacing(wait_time_seconds)
 
