@@ -172,7 +172,11 @@ def print_config(config: Dict[str, Any]) -> None:
     print(f"Connection Timeout: {config['HTTP_CONNECTION_TIMEOUT']} seconds")
     print(f"Max Redirects: {config['HTTP_MAX_REDIRECTS']}")
     print(f"Insecure (Skip SSL Verification): {config['HTTP_INSECURE']}")
-    print("===========================\n")
+    print(f"Keepalive: {config['HTTP_KEEPALIVE']}")
+    print(f"Keepalive Idle: {config['HTTP_KEEPALIVE_IDLE']} seconds")
+    print("=== RAW CONFIG ===")
+    print(json.dumps(config, indent=4))
+    print("==================")
 
 # Load config and get request rate
 app_config: Dict[str, Any] = load_stats_config()
