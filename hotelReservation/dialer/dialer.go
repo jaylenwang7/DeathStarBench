@@ -29,6 +29,13 @@ func WithBalancer(registry *consul.Client) DialOption {
 	}
 }
 
+// WithTimeout sets a timeout for the gRPC connection
+func WithTimeout(timeout time.Duration) DialOption {
+	return func(name string) (grpc.DialOption, error) {
+		return grpc.WithTimeout(timeout), nil
+	}
+}
+
 // Dial returns a load balanced grpc client conn with tracing interceptor
 func Dial(name string, opts ...DialOption) (*grpc.ClientConn, error) {
 
