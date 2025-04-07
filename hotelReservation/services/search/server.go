@@ -71,6 +71,7 @@ func (s *Server) Run() error {
 
 	// Get keepalive timeout from environment variable
 	keepaliveTimeout := getTimeoutFromEnv("GRPC_KEEPALIVE_TIMEOUT_MS", 120000)
+	log.Info().Dur("keepaliveTimeout", keepaliveTimeout).Str("source", "GRPC_KEEPALIVE_TIMEOUT_MS").Msg("Using gRPC keepalive timeout")
 	
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
@@ -139,6 +140,7 @@ func (s *Server) initRateClient(name string) error {
 func (s *Server) getGprcConn(name string) (*grpc.ClientConn, error) {
 	// Get gRPC connection timeout from environment variable
 	connTimeout := getTimeoutFromEnv("GRPC_CONNECTION_TIMEOUT_MS", 5000)
+	log.Info().Dur("connTimeout", connTimeout).Str("source", "GRPC_CONNECTION_TIMEOUT_MS").Str("service", name).Msg("Using gRPC connection timeout")
 	
 	if s.KnativeDns != "" {
 		return dialer.Dial(

@@ -76,6 +76,7 @@ func (s *Server) Run() error {
 
 	// Get keepalive timeout from environment variable
 	keepaliveTimeout := getTimeoutFromEnv("GRPC_KEEPALIVE_TIMEOUT_MS", 120000)
+	log.Info().Dur("keepaliveTimeout", keepaliveTimeout).Str("source", "GRPC_KEEPALIVE_TIMEOUT_MS").Msg("Using gRPC keepalive timeout")
 	
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
