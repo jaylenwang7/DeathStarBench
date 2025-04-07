@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -24,6 +26,26 @@ import (
 )
 
 const name = "srv-profile"
+
+// getEnvWithDefault gets an environment variable or returns a default value
+func getEnvWithDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+// getTimeoutFromEnv gets a timeout value from environment variables in milliseconds and returns a time.Duration
+func getTimeoutFromEnv(key string, defaultMs int) time.Duration {
+	msStr := getEnvWithDefault(key, strconv.Itoa(defaultMs))
+	ms, err := strconv.Atoi(msStr)
+	if err != nil {
+		log.Warn().Str("key", key).Str("value", msStr).Err(err).Msg("Invalid timeout value, using default")
+		ms = defaultMs
+	}
+	return time.Duration(ms) * time.Millisecond
+}
 
 // Server implements the profile service
 type Server struct {
@@ -51,9 +73,12 @@ func (s *Server) Run() error {
 
 	log.Trace().Msgf("in run s.IpAddr = %s, port = %d", s.IpAddr, s.Port)
 
+	// Get keepalive timeout from environment variable
+	keepaliveTimeout := getTimeoutFromEnv("GRPC_KEEPALIVE_TIMEOUT_MS", 120000)
+	
 	opts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			Timeout: 120 * time.Second,
+			Timeout: keepaliveTimeout,
 		}),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			PermitWithoutStream: true,
