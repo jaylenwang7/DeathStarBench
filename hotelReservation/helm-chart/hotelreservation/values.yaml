@@ -35,9 +35,9 @@ global:
       MONGO_SOCKET_TIMEOUT: "30"
       MONGO_MAX_CONN_IDLE_TIME: "1800"
       # Timeout configurations (in milliseconds)
-      GRPC_CONNECTION_TIMEOUT_MS: "5000"
-      HTTP_READ_TIMEOUT_MS: "10000"
-      HTTP_WRITE_TIMEOUT_MS: "10000"
+      GRPC_CONNECTION_TIMEOUT_MS: "1000"
+      HTTP_READ_TIMEOUT_MS: "5000"
+      HTTP_WRITE_TIMEOUT_MS: "5000"
       HTTP_IDLE_TIMEOUT_MS: "120000"
   affinity: {}
   tolerations: []
