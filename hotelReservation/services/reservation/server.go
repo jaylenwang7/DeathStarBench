@@ -118,6 +118,9 @@ func (s *Server) Shutdown() {
 
 // MakeReservation makes a reservation based on given information
 func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Result, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "MakeReservation")
+	defer span.Finish()
+
 	res := new(pb.Result)
 	res.HotelId = make([]string, 0)
 
@@ -134,6 +137,11 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		req.OutDate+"T12:00:00+00:00")
 	hotelId := req.HotelId[0]
 
+	span.SetTag("hotel_id", hotelId)
+	span.SetTag("in_date", req.InDate)
+	span.SetTag("out_date", req.OutDate)
+	span.SetTag("room_number", req.RoomNumber)
+
 	indate := inDate.String()[0:10]
 
 	memc_date_num_map := make(map[string]int)
@@ -147,155 +155,237 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		// first check memc
 		memc_key := hotelId + "_" + inDate.String()[0:10] + "_" + outdate
 		startTime := time.Now()
+		
+		memcSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_reservation_memcached")
+		memcSpan.SetTag("memc_key", memc_key)
 		item, err := s.MemcClient.Get(memc_key)
 		duration := time.Since(startTime)
+		memcSpan.SetTag("duration_ms", duration.Milliseconds())
 		
 		if err == nil {
 			// memcached hit
 			count, _ = strconv.Atoi(string(item.Value))
-			log.Info().Str("key", memc_key).Int("count", count).Dur("duration_ms", duration).Msg("Memcached hit for reservation count")
+			log.Debug().Str("key", memc_key).Int("count", count).Dur("duration_ms", duration).Msg("Memcached hit for reservation count")
 			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
+			memcSpan.SetTag("cache_hit", true)
+			memcSpan.SetTag("count", count)
 
 		} else if err == memcache.ErrCacheMiss {
 			// memcached miss
-			log.Info().Str("key", memc_key).Dur("duration_ms", duration).Msg("Memcached miss for reservation count, querying database")
+			log.Debug().Str("key", memc_key).Dur("duration_ms", duration).Msg("Memcached miss for reservation count, querying database")
+			memcSpan.SetTag("cache_hit", false)
+			
+			dbSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_reservation_database")
+			dbSpan.SetTag("hotel_id", hotelId)
+			dbSpan.SetTag("in_date", indate)
+			dbSpan.SetTag("out_date", outdate)
+			
 			var reserve []reservation
 
 			dbStartTime := time.Now()
 			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
 			curr, err := resCollection.Find(context.TODO(), filter)
 			if err != nil {
+				dbSpan.SetTag("error", true)
+				dbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to query reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			
 			err = curr.All(context.TODO(), &reserve)
 			if err != nil {
+				dbSpan.SetTag("error", true)
+				dbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to decode reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			dbDuration := time.Since(dbStartTime)
-			log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
+			dbSpan.SetTag("duration_ms", dbDuration.Milliseconds())
+			dbSpan.SetTag("results_count", len(reserve))
+			log.Debug().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
 
 			for _, r := range reserve {
 				count += r.Number
 			}
+			dbSpan.SetTag("total_count", count)
+			dbSpan.Finish()
 
 			// Update memcached with the count we found
 			cacheKey := hotelId + "_" + inDate.String()[0:10] + "_" + outdate
 			go func(key string, value int) {
+				updateSpan := opentracing.StartSpan("update_memcached_reservation")
+				updateSpan.SetTag("key", key)
+				updateSpan.SetTag("value", value)
 				err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(value))})
 				if err != nil {
+					updateSpan.SetTag("error", true)
+					updateSpan.LogKV("error", err.Error())
 					log.Warn().Err(err).Str("key", key).Int("value", value).Msg("Failed to update memcached after database query")
 				} else {
-					log.Info().Str("key", key).Int("value", value).Msg("Updated memcached after database query")
+					log.Debug().Str("key", key).Int("value", value).Msg("Updated memcached after database query")
 				}
+				updateSpan.Finish()
 			}(cacheKey, count)
 
 			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
 
 		} else {
 			// Log the error but don't panic
+			memcSpan.SetTag("error", true)
+			memcSpan.LogKV("error", err.Error())
 			log.Error().Err(err).Str("key", memc_key).Dur("duration_ms", duration).Msg("Memcached error, falling back to database")
 			
 			// Fall back to database query (similar to the memcached miss case)
+			dbSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_reservation_database_fallback")
+			dbSpan.SetTag("hotel_id", hotelId)
+			dbSpan.SetTag("in_date", indate)
+			dbSpan.SetTag("out_date", outdate)
+			
 			var reserve []reservation
 		
 			dbStartTime := time.Now()
 			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
 			curr, err := resCollection.Find(context.TODO(), filter)
 			if err != nil {
+				dbSpan.SetTag("error", true)
+				dbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to query reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			
 			err = curr.All(context.TODO(), &reserve)
 			if err != nil {
+				dbSpan.SetTag("error", true)
+				dbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to decode reservation data")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			dbDuration := time.Since(dbStartTime)
-			log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
+			dbSpan.SetTag("duration_ms", dbDuration.Milliseconds())
+			dbSpan.SetTag("results_count", len(reserve))
+			log.Debug().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Dur("duration_ms", dbDuration).Int("results", len(reserve)).Msg("Database query for reservations completed")
 			
 			count := 0
 			for _, r := range reserve {
 				count += r.Number
 			}
+			dbSpan.SetTag("total_count", count)
+			dbSpan.Finish()
 			
 			memc_date_num_map[memc_key] = count + int(req.RoomNumber)
 		}
+		memcSpan.Finish()
 
 		// check capacity
 		// check memc capacity
 		memc_cap_key := hotelId + "_cap"
 		capStartTime := time.Now()
+		
+		capMemcSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_capacity_memcached")
+		capMemcSpan.SetTag("memc_key", memc_cap_key)
 		item, err = s.MemcClient.Get(memc_cap_key)
 		capDuration := time.Since(capStartTime)
+		capMemcSpan.SetTag("duration_ms", capDuration.Milliseconds())
 		
 		hotel_cap := 0
 		if err == nil {
 			// memcached hit
 			hotel_cap, _ = strconv.Atoi(string(item.Value))
-			log.Info().Str("key", memc_cap_key).Int("capacity", hotel_cap).Dur("duration_ms", capDuration).Msg("Memcached hit for hotel capacity")
+			log.Debug().Str("key", memc_cap_key).Int("capacity", hotel_cap).Dur("duration_ms", capDuration).Msg("Memcached hit for hotel capacity")
+			capMemcSpan.SetTag("cache_hit", true)
+			capMemcSpan.SetTag("capacity", hotel_cap)
+
 		} else if err == memcache.ErrCacheMiss {
 			// memcached miss
-			log.Info().Str("key", memc_cap_key).Dur("duration_ms", capDuration).Msg("Memcached miss for hotel capacity, querying database")
+			log.Debug().Str("key", memc_cap_key).Dur("duration_ms", capDuration).Msg("Memcached miss for hotel capacity, querying database")
+			capMemcSpan.SetTag("cache_hit", false)
+			
+			capDbSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_capacity_database")
+			capDbSpan.SetTag("hotel_id", hotelId)
 			
 			dbStartTime := time.Now()
 			var num number
 			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
 			if err != nil {
+				capDbSpan.SetTag("error", true)
+				capDbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Msg("Failed to find hotel capacity in database")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			dbDuration := time.Since(dbStartTime)
+			capDbSpan.SetTag("duration_ms", dbDuration.Milliseconds())
 			
 			hotel_cap = int(num.Number)
-			log.Info().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
+			capDbSpan.SetTag("capacity", hotel_cap)
+			log.Debug().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
 
 			// write to memcache
 			go func(key string, value int) {
+				updateSpan := opentracing.StartSpan("update_memcached_capacity")
+				updateSpan.SetTag("key", key)
+				updateSpan.SetTag("value", value)
 				err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(value))})
 				if err != nil {
+					updateSpan.SetTag("error", true)
+					updateSpan.LogKV("error", err.Error())
 					log.Warn().Err(err).Str("key", key).Int("value", value).Msg("Failed to cache hotel capacity in memcached")
 				} else {
-					log.Info().Str("key", key).Int("value", value).Msg("Cached hotel capacity in memcached")
+					log.Debug().Str("key", key).Int("value", value).Msg("Cached hotel capacity in memcached")
 				}
+				updateSpan.Finish()
 			}(memc_cap_key, hotel_cap)
+			capDbSpan.Finish()
 		} else {
 			log.Error().Err(err).Str("key", memc_cap_key).Dur("duration_ms", capDuration).Msg("Memcached error for capacity, falling back to database")
+			capMemcSpan.SetTag("error", true)
+			capMemcSpan.LogKV("error", err.Error())
 			
 			// Fall back to database query for capacity
+			capDbSpan, ctx := opentracing.StartSpanFromContext(ctx, "check_capacity_database_fallback")
+			capDbSpan.SetTag("hotel_id", hotelId)
+			
 			dbStartTime := time.Now()
 			var num number
 			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
 			if err != nil {
+				capDbSpan.SetTag("error", true)
+				capDbSpan.LogKV("error", err.Error())
 				log.Error().Err(err).Str("hotelId", hotelId).Msg("Failed to find hotel capacity in database")
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			dbDuration := time.Since(dbStartTime)
+			capDbSpan.SetTag("duration_ms", dbDuration.Milliseconds())
 			
 			hotel_cap = int(num.Number)
-			log.Info().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
+			capDbSpan.SetTag("capacity", hotel_cap)
+			log.Debug().Str("hotelId", hotelId).Int("capacity", hotel_cap).Dur("duration_ms", dbDuration).Msg("Retrieved hotel capacity from database")
+			capDbSpan.Finish()
 		}
+		capMemcSpan.Finish()
 
 		// Check if we have enough capacity
 		if count+int(req.RoomNumber) > hotel_cap {
-			log.Info().Str("hotelId", hotelId).Int("requested", int(req.RoomNumber)).Int("available", hotel_cap-count).Msg("Insufficient capacity for reservation")
+			span.SetTag("reservation_status", "insufficient_capacity")
+			log.Debug().Str("hotelId", hotelId).Int("requested", int(req.RoomNumber)).Int("available", hotel_cap-count).Msg("Insufficient capacity for reservation")
 			return res, nil
 		}
 		indate = outdate
 	}
 
 	// only update reservation number cache after check succeeds
+	updateSpan, ctx := opentracing.StartSpanFromContext(ctx, "update_reservation_cache")
+	updateSpan.SetTag("updates_count", len(memc_date_num_map))
 	for key, val := range memc_date_num_map {
 		err := s.MemcClient.Set(&memcache.Item{Key: key, Value: []byte(strconv.Itoa(val))})
 		if err != nil {
+			updateSpan.SetTag("error", true)
+			updateSpan.LogKV("error", err.Error())
 			log.Warn().Err(err).Str("key", key).Int("value", val).Msg("Failed to update reservation count in memcached")
 		} else {
-			log.Info().Str("key", key).Int("value", val).Msg("Updated reservation count in memcached")
+			log.Debug().Str("key", key).Int("value", val).Msg("Updated reservation count in memcached")
 		}
 	}
+	updateSpan.Finish()
 
 	// Now create the actual reservations in the database
 	inDate, _ = time.Parse(
@@ -303,8 +393,13 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		req.InDate+"T12:00:00+00:00")
 
 	indate = inDate.String()[0:10]
-	log.Info().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Str("inDate", req.InDate).Str("outDate", req.OutDate).Int("roomNumber", int(req.RoomNumber)).Msg("Creating reservation records")
+	log.Debug().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Str("inDate", req.InDate).Str("outDate", req.OutDate).Int("roomNumber", int(req.RoomNumber)).Msg("Creating reservation records")
 
+	insertSpan, ctx := opentracing.StartSpanFromContext(ctx, "create_reservation_records")
+	insertSpan.SetTag("hotel_id", hotelId)
+	insertSpan.SetTag("customer_name", req.CustomerName)
+	insertSpan.SetTag("room_number", req.RoomNumber)
+	
 	for inDate.Before(outDate) {
 		inDate = inDate.AddDate(0, 0, 1)
 		outdate := inDate.String()[0:10]
@@ -323,17 +418,21 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		insertDuration := time.Since(insertStartTime)
 		
 		if err != nil {
+			insertSpan.SetTag("error", true)
+			insertSpan.LogKV("error", err.Error())
 			log.Error().Err(err).Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Msg("Failed to insert reservation record")
 			return res, fmt.Errorf("database error: %v", err)
 		}
 		
-		log.Info().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Interface("insertId", result.InsertedID).Dur("duration_ms", insertDuration).Msg("Inserted reservation record")
+		log.Debug().Str("hotelId", hotelId).Str("inDate", indate).Str("outDate", outdate).Interface("insertId", result.InsertedID).Dur("duration_ms", insertDuration).Msg("Inserted reservation record")
 		
 		indate = outdate
 	}
+	insertSpan.Finish()
 
 	res.HotelId = append(res.HotelId, hotelId)
-	log.Info().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Msg("Reservation completed successfully")
+	span.SetTag("reservation_status", "success")
+	log.Debug().Str("hotelId", hotelId).Str("customerName", req.CustomerName).Msg("Reservation completed successfully")
 
 	return res, nil
 }
