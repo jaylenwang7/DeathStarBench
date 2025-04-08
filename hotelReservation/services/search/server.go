@@ -157,6 +157,31 @@ func (s *Server) getGprcConn(name string) (*grpc.ClientConn, error) {
 	}
 }
 
+// logGrpcError logs a gRPC error with consistent formatting
+func logGrpcError(err error, service, method string, fields map[string]interface{}) {
+	logger := log.Error().Err(err).Str("service", service).Str("method", method)
+	
+	// Add any additional fields
+	for key, value := range fields {
+		switch v := value.(type) {
+		case string:
+			logger = logger.Str(key, v)
+		case int:
+			logger = logger.Int(key, v)
+		case float32:
+			logger = logger.Float32(key, v)
+		case float64:
+			logger = logger.Float64(key, v)
+		case []string:
+			logger = logger.Strs(key, v)
+		default:
+			logger = logger.Interface(key, v)
+		}
+	}
+	
+	logger.Msgf("gRPC call to %s.%s failed", service, method)
+}
+
 // Nearby returns ids of nearby hotels ordered by ranking algo
 func (s *Server) Nearby(ctx context.Context, req *pb.NearbyRequest) (*pb.SearchResult, error) {
 	// find nearby hotels
@@ -170,6 +195,10 @@ func (s *Server) Nearby(ctx context.Context, req *pb.NearbyRequest) (*pb.SearchR
 		Lon: req.Lon,
 	})
 	if err != nil {
+		logGrpcError(err, "geo", "Nearby", map[string]interface{}{
+			"lat": req.Lat,
+			"lon": req.Lon,
+		})
 		return nil, err
 	}
 
@@ -184,6 +213,11 @@ func (s *Server) Nearby(ctx context.Context, req *pb.NearbyRequest) (*pb.SearchR
 		OutDate:  req.OutDate,
 	})
 	if err != nil {
+		logGrpcError(err, "rate", "GetRates", map[string]interface{}{
+			"hotelIds": nearby.HotelIds,
+			"inDate":   req.InDate,
+			"outDate":  req.OutDate,
+		})
 		return nil, err
 	}
 

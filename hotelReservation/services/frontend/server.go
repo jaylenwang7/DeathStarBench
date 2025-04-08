@@ -264,6 +264,31 @@ func (s *Server) getGprcConn(name string) (*grpc.ClientConn, error) {
 	}
 }
 
+// logGrpcError logs a gRPC error with consistent formatting
+func logGrpcError(err error, service, method string, fields map[string]interface{}) {
+	logger := log.Error().Err(err).Str("service", service).Str("method", method)
+	
+	// Add any additional fields
+	for key, value := range fields {
+		switch v := value.(type) {
+		case string:
+			logger = logger.Str(key, v)
+		case int:
+			logger = logger.Int(key, v)
+		case float32:
+			logger = logger.Float32(key, v)
+		case float64:
+			logger = logger.Float64(key, v)
+		case []string:
+			logger = logger.Strs(key, v)
+		default:
+			logger = logger.Interface(key, v)
+		}
+	}
+	
+	logger.Msgf("gRPC call to %s.%s failed", service, method)
+}
+
 func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	ctx := r.Context()
@@ -300,6 +325,12 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		OutDate: outDate,
 	})
 	if err != nil {
+		logGrpcError(err, "search", "Nearby", map[string]interface{}{
+			"lat":    lat,
+			"lon":    lon,
+			"inDate": inDate,
+			"outDate": outDate,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -323,7 +354,11 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		RoomNumber:   1,
 	})
 	if err != nil {
-		log.Error().Msg("SearchHandler CheckAvailability failed")
+		logGrpcError(err, "reservation", "CheckAvailability", map[string]interface{}{
+			"hotelIds": searchResp.HotelIds,
+			"inDate":   inDate,
+			"outDate":  outDate,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -337,7 +372,10 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		Locale:   locale,
 	})
 	if err != nil {
-		log.Error().Msg("SearchHandler GetProfiles failed")
+		logGrpcError(err, "profile", "GetProfiles", map[string]interface{}{
+			"hotelIds": reservationResp.HotelId,
+			"locale":   locale,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -374,6 +412,11 @@ func (s *Server) recommendHandler(w http.ResponseWriter, r *http.Request) {
 		Lon:     float64(lon),
 	})
 	if err != nil {
+		logGrpcError(err, "recommendation", "GetRecommendations", map[string]interface{}{
+			"require": require,
+			"lat":     lat,
+			"lon":     lon,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -390,6 +433,10 @@ func (s *Server) recommendHandler(w http.ResponseWriter, r *http.Request) {
 		Locale:   locale,
 	})
 	if err != nil {
+		logGrpcError(err, "profile", "GetProfiles", map[string]interface{}{
+			"hotelIds": recResp.HotelIds,
+			"locale":   locale,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -413,6 +460,9 @@ func (s *Server) reviewHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -438,6 +488,9 @@ func (s *Server) reviewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logGrpcError(err, "review", "GetReviews", map[string]interface{}{
+			"hotelId": hotelId,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -465,6 +518,9 @@ func (s *Server) restaurantHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -490,6 +546,9 @@ func (s *Server) restaurantHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logGrpcError(err, "attractions", "NearbyRest", map[string]interface{}{
+			"hotelId": hotelId,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -517,6 +576,9 @@ func (s *Server) museumHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -542,6 +604,9 @@ func (s *Server) museumHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logGrpcError(err, "attractions", "NearbyMus", map[string]interface{}{
+			"hotelId": hotelId,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -569,6 +634,9 @@ func (s *Server) cinemaHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -594,6 +662,9 @@ func (s *Server) cinemaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		logGrpcError(err, "attractions", "NearbyCinema", map[string]interface{}{
+			"hotelId": hotelId,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -621,6 +692,9 @@ func (s *Server) userHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -682,6 +756,9 @@ func (s *Server) reservationHandler(w http.ResponseWriter, r *http.Request) {
 		Password: password,
 	})
 	if err != nil {
+		logGrpcError(err, "user", "CheckUser", map[string]interface{}{
+			"username": username,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -700,6 +777,13 @@ func (s *Server) reservationHandler(w http.ResponseWriter, r *http.Request) {
 		RoomNumber:   int32(numberOfRoom),
 	})
 	if err != nil {
+		logGrpcError(err, "reservation", "MakeReservation", map[string]interface{}{
+			"customerName": customerName,
+			"hotelId":      hotelId,
+			"inDate":       inDate,
+			"outDate":      outDate,
+			"roomNumber":   numberOfRoom,
+		})
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
