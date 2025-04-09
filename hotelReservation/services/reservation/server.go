@@ -184,7 +184,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 
 			dbStartTime := time.Now()
 			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
-			curr, err := resCollection.Find(context.TODO(), filter)
+			curr, err := resCollection.Find(ctx, filter)
 			if err != nil {
 				dbSpan.SetTag("error", true)
 				dbSpan.LogKV("error", err.Error())
@@ -192,7 +192,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			
-			err = curr.All(context.TODO(), &reserve)
+			err = curr.All(ctx, &reserve)
 			if err != nil {
 				dbSpan.SetTag("error", true)
 				dbSpan.LogKV("error", err.Error())
@@ -245,7 +245,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 		
 			dbStartTime := time.Now()
 			filter := bson.D{{"hotelId", hotelId}, {"inDate", indate}, {"outDate", outdate}}
-			curr, err := resCollection.Find(context.TODO(), filter)
+			curr, err := resCollection.Find(ctx, filter)
 			if err != nil {
 				dbSpan.SetTag("error", true)
 				dbSpan.LogKV("error", err.Error())
@@ -253,7 +253,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 				return res, fmt.Errorf("database error: %v", err)
 			}
 			
-			err = curr.All(context.TODO(), &reserve)
+			err = curr.All(ctx, &reserve)
 			if err != nil {
 				dbSpan.SetTag("error", true)
 				dbSpan.LogKV("error", err.Error())
@@ -305,7 +305,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 			
 			dbStartTime := time.Now()
 			var num number
-			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
+			err = numCollection.FindOne(ctx, &bson.D{{"hotelId", hotelId}}).Decode(&num)
 			if err != nil {
 				capDbSpan.SetTag("error", true)
 				capDbSpan.LogKV("error", err.Error())
@@ -346,7 +346,7 @@ func (s *Server) MakeReservation(ctx context.Context, req *pb.Request) (*pb.Resu
 			
 			dbStartTime := time.Now()
 			var num number
-			err = numCollection.FindOne(context.TODO(), &bson.D{{"hotelId", hotelId}}).Decode(&num)
+			err = numCollection.FindOne(ctx, &bson.D{{"hotelId", hotelId}}).Decode(&num)
 			if err != nil {
 				capDbSpan.SetTag("error", true)
 				capDbSpan.LogKV("error", err.Error())
