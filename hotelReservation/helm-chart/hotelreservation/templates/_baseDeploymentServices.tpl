@@ -67,6 +67,16 @@ spec:
         - {{ $arg }}
         {{- end -}}
         {{- end }}
+        {{- if $.Values.global.readinessProbe.enabled }}
+        readinessProbe:
+          tcpSocket:
+            port: {{ (index .ports 0).containerPort }}
+          initialDelaySeconds: {{ $.Values.global.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ $.Values.global.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ $.Values.global.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ $.Values.global.readinessProbe.failureThreshold }}
+          successThreshold: {{ $.Values.global.readinessProbe.successThreshold }}
+        {{- end }}
         {{- if .resources }}
         resources:
           {{ tpl .resources $ | nindent 10 | trim }}

@@ -115,6 +115,12 @@ func (s *Server) Shutdown() {
 
 // CheckUser returns whether the username and password are correct.
 func (s *Server) CheckUser(ctx context.Context, req *pb.Request) (*pb.Result, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "CheckUser")
+	defer span.Finish()
+
+	span.SetTag("username", req.Username)
+	span.SetTag("has_password", req.Password != "")
+
 	res := new(pb.Result)
 
 	log.Trace().Msg("CheckUser")
@@ -125,6 +131,10 @@ func (s *Server) CheckUser(ctx context.Context, req *pb.Request) (*pb.Result, er
 	res.Correct = false
 	if true_pass, found := s.users[req.Username]; found {
 		res.Correct = pass == true_pass
+		span.SetTag("user_found", true)
+		span.SetTag("password_correct", res.Correct)
+	} else {
+		span.SetTag("user_found", false)
 	}
 
 	log.Trace().Msgf("CheckUser %d", res.Correct)
