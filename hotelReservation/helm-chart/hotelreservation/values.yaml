@@ -30,15 +30,19 @@ global:
       MEMC_TIMEOUT: "2"
       GC: "100"
       # MongoDB connection timeouts (in milliseconds)
-      MONGO_SERVER_SELECTION_TIMEOUT: "1000"
-      MONGO_CONNECT_TIMEOUT: "1000"
-      MONGO_SOCKET_TIMEOUT: "1000"
+      # Maximum time to wait for server selection (finding an available server)
+      MONGO_SERVER_SELECTION_TIMEOUT: "100"
+      # Maximum time to wait for initial connection establishment
+      MONGO_CONNECT_TIMEOUT: "100"
+      # Maximum time to wait for socket operations (read/write)
+      MONGO_SOCKET_TIMEOUT: "100"
+      # Maximum time a connection can remain idle before being closed (30 minutes)
       MONGO_MAX_CONN_IDLE_TIME: "1800000"
       # Timeout configurations (in milliseconds)
-      GRPC_CONNECTION_TIMEOUT_MS: "1000"
+      GRPC_CONNECTION_TIMEOUT_MS: "100"
       GRPC_KEEPALIVE_TIMEOUT_MS: "120000"
-      HTTP_READ_TIMEOUT_MS: "1000"
-      HTTP_WRITE_TIMEOUT_MS: "1000"
+      HTTP_READ_TIMEOUT_MS: "100"
+      HTTP_WRITE_TIMEOUT_MS: "100"
       HTTP_IDLE_TIMEOUT_MS: "120000"
   affinity: {}
   tolerations: []
