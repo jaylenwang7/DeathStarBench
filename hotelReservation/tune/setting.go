@@ -259,10 +259,10 @@ func (r *ResilientMemcClient) Get(key string) (*memcache.Item, error) {
         
         // If successful or it's a cache miss (normal behavior), return immediately
         if err == nil {
-            log.Info().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached Get successful")
+            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached Get successful")
             return item, err
         } else if err == memcache.ErrCacheMiss {
-            log.Info().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached key not found")
+            log.Debug().Str("key", key).Dur("duration_ms", opDuration).Int("attempts", i+1).Msg("Memcached key not found")
             return item, err
         }
         
@@ -717,7 +717,7 @@ func validateMemcachedConnection(client *memcache.Client) error {
         return fmt.Errorf("failed to set test key: %w", err)
     }
     
-    log.Info().Str("test_key", testKey).Dur("set_duration_ms", setDuration).Msg("Set test key successful")
+    log.Debug().Str("test_key", testKey).Dur("set_duration_ms", setDuration).Msg("Set test key successful")
     
     // Get the test item
     getStart := time.Now()
@@ -735,7 +735,7 @@ func validateMemcachedConnection(client *memcache.Client) error {
         return fmt.Errorf("test key value mismatch: expected %s, got %s", testValue, string(item.Value))
     }
     
-    log.Info().Str("test_key", testKey).Dur("get_duration_ms", getDuration).Msg("Get test key successful")
+    log.Debug().Str("test_key", testKey).Dur("get_duration_ms", getDuration).Msg("Get test key successful")
     
     // Delete the test item
     deleteStart := time.Now()
@@ -746,11 +746,11 @@ func validateMemcachedConnection(client *memcache.Client) error {
         log.Warn().Err(deleteErr).Str("test_key", testKey).Dur("duration_ms", deleteDuration).Msg("Failed to delete test key during validation")
         // Don't fail validation just because delete failed
     } else {
-        log.Info().Str("test_key", testKey).Dur("delete_duration_ms", deleteDuration).Msg("Delete test key successful")
+        log.Debug().Str("test_key", testKey).Dur("delete_duration_ms", deleteDuration).Msg("Delete test key successful")
     }
     
     totalDuration := time.Since(startTime)
-    log.Info().Str("test_key", testKey).Dur("total_duration_ms", totalDuration).Msg("Memcached connection validation successful")
+    log.Debug().Str("test_key", testKey).Dur("total_duration_ms", totalDuration).Msg("Memcached connection validation successful")
     
     return nil
 }
