@@ -22,9 +22,9 @@ ports:
 container:
   env: 
   - name: COLLECTOR_ZIPKIN_HTTP_PORT
-    value: 9411
+    value: "9411"
   - name: MEMORY_MAX_TRACES
-    value: {{ .Values.global.jaeger.memoryMaxTraces | default 10000 | quote }}
+    value: "{{ default 10000 $.Values.global.jaeger.memoryMaxTraces }}"
   image:
     registry: docker.io
     repository: jaegertracing
