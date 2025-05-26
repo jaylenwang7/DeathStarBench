@@ -52,6 +52,7 @@ global:
     environments:
       MEMCACHED_CACHE_SIZE: "128"
       MEMCACHED_THREADS: "2"
+    maxConnections: "2048"
   mongodb:
     persistentVolume:               # use hostPath or pvprovisioner
       enabled: false

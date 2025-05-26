@@ -57,8 +57,14 @@ spec:
             value: {{ $value | quote }}
           {{- end }}
         {{- end }}
-        {{- if .args}}
         args:
+        - "-m"
+        - {{ $.Values.global.memcached.environments.MEMCACHED_CACHE_SIZE | default "64" | quote }}
+        - "-t"
+        - {{ $.Values.global.memcached.environments.MEMCACHED_THREADS | default "4" | quote }}
+        - "-c"
+        - {{ $.Values.global.memcached.maxConnections | default "1024" | quote }}
+        {{- if .args }}
         {{- range $arg := .args}}
         - {{ $arg | quote }}
         {{- end -}}
