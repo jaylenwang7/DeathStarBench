@@ -55,6 +55,7 @@ global:
     samplerParam: 1
     disabled: false
     logSpans: false
+    memoryMaxTraces: 10000 # Default value for max traces
   
   probe:
     initialDelaySeconds: 2
