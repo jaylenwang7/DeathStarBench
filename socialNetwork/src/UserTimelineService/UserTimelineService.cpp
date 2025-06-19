@@ -97,14 +97,7 @@ int main(int argc, char *argv[]) {
     LOG(fatal) << "Failed to pop mongoc client";
     return EXIT_FAILURE;
   }
-  bool r = false;
-  while (!r) {
-    r = CreateIndex(mongodb_client, "user-timeline", "user_id", true);
-    if (!r) {
-      LOG(error) << "Failed to create mongodb index, try again";
-      sleep(1);
-    }
-  }
+  bool r = CreateIndex(mongodb_client, "user-timeline", "user_id", true);
   mongoc_client_pool_push(mongodb_client_pool, mongodb_client);
   std::shared_ptr<TServerSocket> server_socket =
       get_server_socket(config_json, "0.0.0.0", port);

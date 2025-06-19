@@ -156,41 +156,167 @@ mongoc_client_t* mongo_client_pool_pop_safe(mongoc_client_pool_t* pool) {
     return client;
 }
 
+bool IndexExists(mongoc_client_t *client, const std::string &db_name, 
+                 const std::string &collection_name, const std::string &index_name) {
+    mongoc_database_t *db = mongoc_client_get_database(client, db_name.c_str());
+    mongoc_collection_t *collection = mongoc_database_get_collection(db, collection_name.c_str());
+    
+    mongoc_cursor_t *cursor = mongoc_collection_find_indexes_with_opts(collection, NULL);
+    const bson_t *doc;
+    bool exists = false;
+    
+    while (mongoc_cursor_next(cursor, &doc)) {
+        bson_iter_t iter;
+        if (bson_iter_init_find(&iter, doc, "name") && BSON_ITER_HOLDS_UTF8(&iter)) {
+            const char *name = bson_iter_utf8(&iter, NULL);
+            if (strcmp(name, index_name.c_str()) == 0) {
+                exists = true;
+                break;
+            }
+        }
+    }
+    
+    mongoc_cursor_destroy(cursor);
+    mongoc_collection_destroy(collection);
+    mongoc_database_destroy(db);
+    return exists;
+}
+
 bool CreateIndex(
     mongoc_client_t *client,
     const std::string &db_name,
-    const std::string &index,
+    const std::string &index_field,
     bool unique) {
-    mongoc_database_t *db;
+    
+    if (!client) {
+        LOG(error) << "CreateIndex: client is null";
+        return false;
+    }
+    
+    // Generate standard MongoDB index name (field_1, field_-1, etc.)
+    std::string index_name = index_field + "_1";
+    std::string collection_name = GetCollectionName(db_name);
+    
+    LOG(info) << "CreateIndex: Creating " << (unique ? "unique" : "non-unique") 
+              << " index '" << index_name << "' on field '" << index_field 
+              << "' in " << db_name << "." << collection_name;
+    
+    // STEP 1: Check if index already exists
+    try {
+        if (IndexExists(client, db_name, collection_name, index_name)) {
+            LOG(info) << "CreateIndex: Index '" << index_name << "' already exists, skipping creation";
+            return true;
+        }
+        
+        // Also check for non-unique version if we're trying to create unique
+        if (unique && IndexExists(client, db_name, collection_name, index_field + "_non_unique")) {
+            LOG(info) << "CreateIndex: Non-unique version of index already exists: '" 
+                      << index_field << "_non_unique'";
+            LOG(warning) << "CreateIndex: Continuing with existing non-unique index instead of creating unique";
+            return true;
+        }
+    } catch (...) {
+        LOG(warning) << "CreateIndex: Failed to check existing indexes, proceeding with creation attempt";
+    }
+    
+    // STEP 2: Attempt to create the requested index
+    mongoc_database_t *db = mongoc_client_get_database(client, db_name.c_str());
+    if (!db) {
+        LOG(error) << "CreateIndex: Failed to get database '" << db_name << "'";
+        return false;
+    }
+    
     bson_t keys;
-    char *index_name;
-    bson_t *create_indexes;
+    bson_t *create_indexes = nullptr;
     bson_t reply;
     bson_error_t error;
-    bool r;
-
-    db = mongoc_client_get_database(client, db_name.c_str());
-    bson_init (&keys);
-    BSON_APPEND_INT32(&keys, index.c_str(), 1);
-    index_name = mongoc_collection_keys_to_index_string(&keys);
-    create_indexes = BCON_NEW (
-        "createIndexes", BCON_UTF8(db_name.c_str()),
+    bool success = false;
+    
+    bson_init(&keys);
+    BSON_APPEND_INT32(&keys, index_field.c_str(), 1);
+    
+    // Try to create the requested index
+    create_indexes = BCON_NEW(
+        "createIndexes", BCON_UTF8(collection_name.c_str()),
         "indexes", "[", "{",
-            "key", BCON_DOCUMENT (&keys),
-            "name", BCON_UTF8 (index_name),
+            "key", BCON_DOCUMENT(&keys),
+            "name", BCON_UTF8(index_name.c_str()),
             "unique", BCON_BOOL(unique),
         "}", "]");
-    r = mongoc_database_write_command_with_opts (
-        db, create_indexes, NULL, &reply, &error);
-    if (!r) {
-        LOG(error) << "Error in createIndexes: " << error.message;
+    
+    LOG(debug) << "CreateIndex: Attempting to create " << (unique ? "unique" : "non-unique") << " index";
+    
+    success = mongoc_database_write_command_with_opts(db, create_indexes, NULL, &reply, &error);
+    
+    // STEP 3: Handle different types of failures intelligently
+    if (!success) {
+        bool is_duplicate_key_error = (strstr(error.message, "E11000") != NULL || 
+                                     strstr(error.message, "duplicate key") != NULL);
+        bool is_index_exists_error = (strstr(error.message, "already exists") != NULL ||
+                                    strstr(error.message, "IndexOptionsConflict") != NULL);
+        
+        if (is_index_exists_error) {
+            // Index already exists (race condition with another replica)
+            LOG(info) << "CreateIndex: Index creation failed because index already exists (race condition)";
+            LOG(info) << "CreateIndex: This is normal when multiple replicas start simultaneously";
+            success = true;  // Treat as success
+            
+        } else if (is_duplicate_key_error && unique) {
+            // Cannot create unique index due to duplicate data
+            LOG(warning) << "CreateIndex: Cannot create unique index due to duplicate data: " << error.message;
+            LOG(warning) << "CreateIndex: Attempting to create non-unique index as fallback";
+            
+            // Clean up first attempt
+            bson_destroy(create_indexes);
+            bson_destroy(&reply);
+            
+            // STEP 4: Fallback to non-unique index
+            create_indexes = BCON_NEW(
+                "createIndexes", BCON_UTF8(collection_name.c_str()),
+                "indexes", "[", "{",
+                    "key", BCON_DOCUMENT(&keys),
+                    "name", BCON_UTF8((index_field + "_non_unique").c_str()),
+                    "unique", BCON_BOOL(false),
+                "}", "]");
+            
+            success = mongoc_database_write_command_with_opts(db, create_indexes, NULL, &reply, &error);
+            
+            if (success) {
+                LOG(warning) << "CreateIndex: Successfully created non-unique index '" 
+                            << index_field << "_non_unique'";
+                LOG(warning) << "CreateIndex: IMPORTANT: You should clean up duplicate data and recreate as unique index";
+                LOG(warning) << "CreateIndex: Service will continue with reduced data consistency guarantees";
+            } else {
+                LOG(error) << "CreateIndex: Failed to create even non-unique index: " << error.message;
+            }
+            
+        } else if (is_duplicate_key_error && !unique) {
+            // This shouldn't happen for non-unique indexes, but handle it
+            LOG(error) << "CreateIndex: Unexpected duplicate key error for non-unique index: " << error.message;
+            
+        } else {
+            // Other types of errors (permissions, network, etc.)
+            LOG(error) << "CreateIndex: Failed to create index due to: " << error.message;
+            
+            // For some errors, we might want to retry or continue anyway
+            if (strstr(error.message, "timeout") != NULL || 
+                strstr(error.message, "network") != NULL ||
+                strstr(error.message, "connection") != NULL) {
+                LOG(warning) << "CreateIndex: Network/timeout error - service might still function without optimal indexing";
+                // Could decide to return true here to allow service to continue
+            }
+        }
+    } else {
+        LOG(info) << "CreateIndex: Successfully created " << (unique ? "unique" : "non-unique") 
+                  << " index '" << index_name << "'";
     }
-    bson_free (index_name);
-    bson_destroy (&reply);
-    bson_destroy (create_indexes);
+    
+    // STEP 5: Cleanup and return
+    if (create_indexes) bson_destroy(create_indexes);
+    bson_destroy(&reply);
     mongoc_database_destroy(db);
-
-    return r;
+    
+    return success;
 }
 
 } // namespace social_network
