@@ -182,6 +182,12 @@ bool IndexExists(mongoc_client_t *client, const std::string &db_name,
     return exists;
 }
 
+std::string GetCollectionName(const std::string &db_name) {
+    // For services like "user-timeline", "post-storage", etc.
+    // Collection name is typically the same as database name
+    return db_name;
+}
+
 bool CreateIndex(
     mongoc_client_t *client,
     const std::string &db_name,
