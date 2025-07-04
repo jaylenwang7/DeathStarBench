@@ -17,7 +17,8 @@ import (
 var (
 	defaultGCPercent        int    = 100
 	defaultMemCTimeout      int    = 2
-	defaultMemCMaxIdleConns int    = 2048
+	defaultMemCMaxIdleConns int    = 32
+	defaultMemCMaxOpenConns int    = 64
 	defaultLogLevel         string = "info"
 	defaultRetryAttempts    int    = 5
 	defaultRetryDelay       int    = 1      // seconds
@@ -32,6 +33,8 @@ type ResilientMemcClient struct {
 	serverList    []string
 	retryAttempts int
 	retryDelay    time.Duration
+	maxIdleConns  int
+	maxOpenConns  int
 	mu            sync.Mutex // protect client reset operations
 }
 
@@ -79,6 +82,32 @@ func GetMemCTimeout() int {
     }
     log.Info().Msgf("Tune: GetMemCTimeout %d", timeout)
     return timeout
+}
+
+func getMemCMaxIdleConns() int {
+    maxIdle := defaultMemCMaxIdleConns
+    if val, ok := os.LookupEnv("MEMC_MAX_IDLE_CONNS"); ok {
+        if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 {
+            maxIdle = parsed
+        } else {
+            log.Warn().Msgf("Invalid MEMC_MAX_IDLE_CONNS value: %s, using default: %d", val, defaultMemCMaxIdleConns)
+        }
+    }
+    log.Info().Msgf("Tune: GetMemCMaxIdleConns %d", maxIdle)
+    return maxIdle
+}
+
+func getMemCMaxOpenConns() int {
+    maxOpen := defaultMemCMaxOpenConns
+    if val, ok := os.LookupEnv("MEMC_MAX_OPEN_CONNS"); ok {
+        if parsed, err := strconv.Atoi(val); err == nil && parsed > 0 {
+            maxOpen = parsed
+        } else {
+            log.Warn().Msgf("Invalid MEMC_MAX_OPEN_CONNS value: %s, using default: %d", val, defaultMemCMaxOpenConns)
+        }
+    }
+    log.Info().Msgf("Tune: GetMemCMaxOpenConns %d", maxOpen)
+    return maxOpen
 }
 
 func GetRetrySettings() (attempts, initialDelay, maxDelay int) {
@@ -181,8 +210,8 @@ func (r *ResilientMemcClient) resetConnection() error {
 	// Create new client before replacing the old one
 	newClient := memcache.NewFromSelector(ss)
 	newClient.Timeout = time.Second * time.Duration(GetMemCTimeout())
-	newClient.MaxIdleConns = defaultMemCMaxIdleConns
-	log.Info().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", defaultMemCMaxIdleConns).Msg("Created new memcached client")
+	newClient.MaxIdleConns = r.maxIdleConns  // Use stored configurable value
+	log.Info().Int("timeout_seconds", GetMemCTimeout()).Int("max_idle_conns", r.maxIdleConns).Msg("Created new memcached client")
 
 	// Verify the new connection works
 	log.Info().Msg("Validating new memcached connection")
@@ -596,8 +625,13 @@ func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
     maxRetries, initialDelay, maxDelay := GetRetrySettings()
     backoff := time.Duration(initialDelay) * time.Second
     
+    // Use environment-aware functions instead of hardcoded values
+    maxIdle := getMemCMaxIdleConns()  // NEW: reads from env
+    maxOpen := getMemCMaxOpenConns()  // NEW: reads from env
+    
     log.Info().Strs("servers", servers).Int("max_retries", maxRetries).
         Int("initial_delay_sec", initialDelay).Int("max_delay_sec", maxDelay).
+        Int("max_idle_conns", maxIdle).Int("max_open_conns", maxOpen).
         Msg("Creating resilient memcached client")
     
     ss := new(memcache.ServerList)
@@ -625,10 +659,10 @@ func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
         // Create client
         client = memcache.NewFromSelector(ss)
         client.Timeout = time.Second * time.Duration(GetMemCTimeout())
-        client.MaxIdleConns = defaultMemCMaxIdleConns
+        client.MaxIdleConns = maxIdle  // Use environment-aware value
         
         log.Info().Int("timeout_seconds", GetMemCTimeout()).
-            Int("max_idle_conns", defaultMemCMaxIdleConns).
+            Int("max_idle_conns", maxIdle).
             Msg("Created memcached client with configuration")
         
         // Validate the connection
@@ -659,6 +693,8 @@ func CreateResilientMemcClient(servers []string) (*ResilientMemcClient, error) {
             serverList:    servers,
             retryAttempts: retryAttempts,
             retryDelay:    retryDelay,
+            maxIdleConns:  maxIdle,   // Store for later use
+            maxOpenConns:  maxOpen,   // Store for later use
         }, nil
     }
     

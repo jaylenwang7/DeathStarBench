@@ -13,3 +13,11 @@ container:
   name: hotel-reserv-reservation-mmc
   ports:
   - containerPort: 11211
+  args:
+    - "memcached"
+    - "-c"
+    - "4096"          # Increase max connections from default 1024
+    - "-m"
+    - "512"           # Memory limit
+    - "-t"
+    - "4"             # Increase threads

@@ -29,6 +29,8 @@ global:
       JAEGER_SAMPLE_RATIO: "1.0"
       MEMC_TIMEOUT: "2"
       GC: "100"
+      MEMC_MAX_IDLE_CONNS: "32"
+      MEMC_MAX_OPEN_CONNS: "64"
       # MongoDB connection timeouts (in milliseconds)
       # Maximum time to wait for server selection (finding an available server)
       MONGO_SERVER_SELECTION_TIMEOUT: "100"
