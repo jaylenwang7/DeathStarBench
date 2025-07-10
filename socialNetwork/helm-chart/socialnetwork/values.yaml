@@ -9,8 +9,8 @@ global:
   defaultImageVersion: latest
   objectPool:
     timeout: 100       # RPC read/write timeout (ms)
-    maxTotal: 5000      # Max connections in pool
-    maxIdleTime: 60000 # Connection reuse window (ms)
+    maxTotal: 20000      # Max connections in pool
+    maxIdleTime: 300000 # Connection reuse window (ms)
 
   git:
     repository: https://github.com/jaylenwang7/DeathStarBench.git
@@ -47,9 +47,9 @@ global:
   nginx:
     resolverName: kube-dns.kube-system.svc.cluster.local
     proxy:
-      readTimeout: 1s      # Time nginx waits to receive response from upstream
-      connectTimeout: 1s    # Time nginx waits to connect to upstream  
-      sendTimeout: 1s      # Time nginx waits to send request to upstream
+      readTimeout: 10s      # Time nginx waits to receive response from upstream
+      connectTimeout: 5s    # Time nginx waits to connect to upstream  
+      sendTimeout: 10s      # Time nginx waits to send request to upstream
   
   jaeger:
     localAgentHostPort: jaeger:6831
