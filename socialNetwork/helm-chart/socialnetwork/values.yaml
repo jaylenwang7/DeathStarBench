@@ -46,6 +46,10 @@ global:
   
   nginx:
     resolverName: kube-dns.kube-system.svc.cluster.local
+    proxy:
+      readTimeout: 1s      # Time nginx waits to receive response from upstream
+      connectTimeout: 1s    # Time nginx waits to connect to upstream  
+      sendTimeout: 1s      # Time nginx waits to send request to upstream
   
   jaeger:
     localAgentHostPort: jaeger:6831
