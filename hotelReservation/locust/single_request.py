@@ -2,6 +2,8 @@ import requests
 import random
 import time
 import urllib3
+import argparse
+import os
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -78,10 +80,60 @@ def send_reservation_request(base_url="http://localhost:8080"):
 
     return response
 
-if __name__ == "__main__":
-    # You can change the base URL if needed
-    base_url = "http://localhost:8080"
+def parse_arguments():
+    """Parse command-line arguments for configuration"""
+    parser = argparse.ArgumentParser(
+        description='Send a single hotel reservation request',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s                                    # Use default http://localhost:8080
+  %(prog)s --url http://myserver:8080         # Use custom URL
+  %(prog)s --host myserver --port 9090       # Use custom host and port
+  %(prog)s --host myserver --port 9090 --https  # Use HTTPS
+  
+Environment Variables:
+  HOTEL_BASE_URL     Base URL (e.g., http://localhost:8080)
+  HOTEL_HOST         Host name (e.g., localhost)
+  HOTEL_PORT         Port number (e.g., 8080)
+  HOTEL_USE_HTTPS    Use HTTPS (true/false)
+        """)
     
+    parser.add_argument('--url', '--base-url', dest='base_url',
+                       help='Full base URL (e.g., http://localhost:8080)')
+    parser.add_argument('--host', 
+                       help='Host name (default: localhost)')
+    parser.add_argument('--port', type=int,
+                       help='Port number (default: 8080)')
+    parser.add_argument('--https', action='store_true',
+                       help='Use HTTPS instead of HTTP')
+    
+    return parser.parse_args()
+
+def get_base_url(args):
+    """Determine base URL from arguments and environment variables"""
+    # If full URL is provided via argument, use it
+    if args.base_url:
+        return args.base_url
+    
+    # Check environment variable for full URL
+    env_url = os.getenv('HOTEL_BASE_URL')
+    if env_url:
+        return env_url
+    
+    # Build URL from components (args take precedence over env vars)
+    host = args.host or os.getenv('HOTEL_HOST', 'localhost')
+    port = args.port or int(os.getenv('HOTEL_PORT', '8080'))
+    use_https = args.https or os.getenv('HOTEL_USE_HTTPS', '').lower() == 'true'
+    
+    scheme = 'https' if use_https else 'http'
+    return f"{scheme}://{host}:{port}"
+
+if __name__ == "__main__":
+    args = parse_arguments()
+    base_url = get_base_url(args)
+    
+    print(f"Using base URL: {base_url}")
     print("Sending a single hotel reservation request...")
     response = send_reservation_request(base_url)
     
